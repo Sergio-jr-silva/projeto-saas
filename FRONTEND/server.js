@@ -44,6 +44,6 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, () => {
   console.log(`[Frontend Web] Servidor ativo em: http://localhost:${PORT}`);
 });
