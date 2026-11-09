@@ -1,0 +1,11 @@
+# Ignorar binários descompactados maiores que 50MB
+# (O script pedidos_compras.bat descompacta automaticamente SINc.zip e BM.FDB.zip se necessário)
+SINc/SINc.exe
+BANCO_EXEMPLO/BM.FDB
+
+# Arquivos de depuração
+*.pdb
+
+# Dados locais do agente e logs
+data/
+logs/

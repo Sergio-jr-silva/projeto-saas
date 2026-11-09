@@ -1,0 +1,32 @@
+================================================================================
+NEXO COMPRAS — SINc (SINCRONIZADOR LOCAL ERP)
+PASTA DE DEPENDÊNCIAS E BIBLIOTECAS NATIVAS
+================================================================================
+
+1. ARQUITETURA DO EXECUTÁVEL (SINc.exe)
+- O SINc.exe é um aplicativo Windows 64-bit (win-x64) publicado no modelo
+  SELF-CONTAINED e SINGLE-FILE.
+- Todas as dependências gerenciadas do .NET 9.0 Windows Desktop Runtime
+  estão EMBUTIDAS dentro do próprio executável.
+- NÃO É NECESSÁRIO instalar o .NET SDK, .NET Runtime ou Desktop Runtime
+  no computador do cliente ou de testes.
+
+2. DRIVER DE COMUNICAÇÃO FIREBIRD
+- O SINc utiliza o provedor gerenciado ADO.NET oficial da Firebird
+  (FirebirdSql.Data.FirebirdClient 10.0), que opera diretamente via protocolo de rede
+  (Wire Protocol TCP/IP na porta 3050).
+- Por padrão, o SINc NÃO depende de bibliotecas nativas instaladas no Windows
+  para consultar bases Firebird 2.5, 3.0, 4.0 ou 5.0.
+
+3. ARQUIVOS DISPONIBILIZADOS NESTA PASTA
+- fbclient_x64.dll: Biblioteca cliente nativa do Firebird para ambientes 64-bit.
+- fbclient_x86.dll: Biblioteca cliente nativa do Firebird para ambientes 32-bit (legados).
+Caso seu ambiente exija o driver nativo clássico no diretório da aplicação ou no
+System32/SysWOW64, copie o arquivo correspondente renomeado para "fbclient.dll".
+
+4. SEGURANÇA E PROTEÇÃO DE CREDENCIAIS
+- O SINc utiliza a API nativa de Proteção de Dados do Windows (DPAPI) para cifrar
+  localmente o Token e credenciais em repouso. Nenhum token transita ou é armazenado
+  em texto plano.
+================================================================================
+
