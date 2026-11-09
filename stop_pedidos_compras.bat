@@ -27,3 +27,4 @@ echo   TODOS OS SERVIÇOS FORAM ENCERRADOS COM SUCESSO.
 echo ==============================================================================
 echo.
 pause
+
