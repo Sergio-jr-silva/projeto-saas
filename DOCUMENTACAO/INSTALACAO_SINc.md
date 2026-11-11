@@ -65,3 +65,4 @@ Localize o arquivo executável gerado:
   - Horário da última sincronização realizada.
   - Acesso ao Diagnóstico Técnico e Configurações.
   - Sincronização manual imediata.
+

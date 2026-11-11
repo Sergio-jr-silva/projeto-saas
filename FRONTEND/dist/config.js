@@ -5,3 +5,4 @@
 window.__NEXO_CONFIG__ = {
   API_URL: ""
 };
+

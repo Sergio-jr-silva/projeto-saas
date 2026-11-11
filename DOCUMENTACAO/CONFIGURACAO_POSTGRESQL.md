@@ -90,3 +90,4 @@ O resultado é exibido com um status badge visual e tempo de resposta em milisse
 ### E. Falha de SSL / TLS
 - **Causa**: O servidor PostgreSQL local não possui certificados SSL configurados, mas o cliente solicitou modo estrito.
 - **Solução**: No SINc, altere o parâmetro **Modo SSL** para `Disable` ou `Prefer`.
+

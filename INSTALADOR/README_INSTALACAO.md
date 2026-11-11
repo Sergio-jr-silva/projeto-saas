@@ -38,3 +38,4 @@ Este diretório contém o instalador oficial e autocontido do **SINc (Sincroniza
 
 - **Atualizações Sem Perda de Dados**: Ao executar uma nova versão do instalador em uma máquina que já possui o SINc instalado, o assistente detecta a versão anterior, atualiza apenas os binários executáveis e **mantém intactas todas as credenciais criptografadas via Windows DPAPI, tokens e filas offline**.
 - **Desinstalação Segura**: Caso o cliente desinstale o SINc pelo Painel de Controle, o desinstalador pergunta se deseja preservar as credenciais locais ou excluí-las por completo.
+

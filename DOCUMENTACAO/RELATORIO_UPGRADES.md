@@ -1,15 +1,49 @@
-# Nexo Compras — Relatório Técnico de Upgrades: Diagnóstico PostgreSQL & Instalador SINc
+# Nexo Compras — Relatório Técnico de Upgrades: v2.5.0
 
 **Data de Conclusão**: Novembro de 2026  
-**Versão da Solução**: v2.4.0  
+**Versão da Solução**: v2.5.0  
 **Ambiente de Homologação**: Windows x64  
 **Repositório Oficial**: `https://github.com/Sergio-jr-silva/projeto-saas.git`
 
 ---
 
-## 1. Resumo Executivo das Implementações
+## 1. Resumo Executivo das Implementações (v2.5.0)
 
-Este ciclo de engenharia entregou dois grandes upgrades para o ecossistema Nexo Compras:
+Este ciclo de engenharia entregou melhorias de alto impacto no ecossistema Nexo Compras:
+
+1. **Ajuste no SINc (Desktop Agent) — Remoção do Acumulador de Registros**:
+   - Correção definitiva no gerenciamento de estado (`AgentStateManager.cs`): os contadores de produtos, estoque e fornecedores não acumulam incrementalmente entre ciclos sucessivos.
+   - A interface do agente e a bandeja do sistema refletem apenas o status atualizado do ciclo presente.
+
+2. **Geração Dinâmica de Documentos PDF Multi-Tenant e Identidade da Empresa**:
+   - Centralização na camada de serviço (`PdfDocumentService.cs`) com resolução automática via `ObterDadosEmpresa()`.
+   - Eliminação completa de quaisquer dados estáticos fictícios ou de teste (ex: "PROSYST", "Joinville", dados mockados).
+   - Leitura direta da base de dados do Tenant ativo: Razão Social, Nome Fantasia, CNPJ, Inscrição Estadual, Inscrição Municipal, Endereço completo, Telefone e E-mail.
+   - Tratamento de campos não preenchidos (permanecem em branco de forma harmoniosa).
+   - Suporte a Logomarca da Empresa: quando cadastrada, é inserida no cabeçalho do PDF; caso não haja logotipo cadastrado, o espaço é omitido sem placeholders quebrados.
+
+3. **Módulo Completo de Relatórios Gerenciais (3 Categorias)**:
+   - **Ordens de Serviço**:
+     - *OS Pendentes*: identificação de gargalos, impedimentos e dias em aberto.
+     - *Produtividade de Técnicos*: volume concluído por profissional e tempos médios.
+     - *Lucratividade Custo vs Receita*: margem bruta, horas trabalhadas, materiais aplicados e modal de apontamento de custos reais (`/apontar-custos`).
+   - **Cotações**:
+     - *Mapa Comparativo Lado a Lado*: matriz produto vs fornecedores com destaque visual do menor preço cotado.
+     - *Saving Financeiro*: economia realizada versus saving potencial em valor monetário e percentual.
+     - *Funil de Cotações*: conversão de status (Rascunho -> Aberta -> Em Análise -> Aprovada) e taxa de resposta dos fornecedores.
+   - **Pedidos de Compra**:
+     - *Pedidos Pendentes e Atrasados*: alertas visuais por criticidade e rastreamento de saldo de recebimento parcial (`/receber`).
+     - *Curva ABC de Compras*: classificação de Pareto (80/15/5) para identificação dos itens mais representativos financeiramente.
+     - *Pontualidade de Fornecedores*: taxa de cumprimento de prazos (SLA) e média de atraso em dias.
+   - **Exportações Unificadas**: geração de relatórios impressos em PDF executivo e exportação de dados em CSV.
+
+4. **Módulo de Cotação de Serviços e Correção de Rotas Web**:
+   - Normalização completa dos endpoints e páginas `/servicos` e `/servicos/nova`.
+   - Eliminação de erros de renderização ou páginas em branco ao cadastrar novas cotações de prestação de serviços.
+
+---
+
+## 2. Histórico de Upgrades Anteriores (v2.4.0)
 
 1. **Diagnóstico Técnico e Verificação de Conectividade com Bancos PostgreSQL**:
    - Implementação de serviço de diagnóstico em 7 etapas no `agent-core` (`PostgreSqlDiagnosticService`).
@@ -21,20 +55,15 @@ Este ciclo de engenharia entregou dois grandes upgrades para o ecossistema Nexo 
    - Diálogo dedicado de resultados (`DiagnosticResultDialog`) com medição de latência em milissegundos e botão de cópia de relatório técnico para suporte.
 
 2. **Pacote de Instalação Profissional do SINc**:
-   - Geração do instalador executável `NexoCompras_SINc_Setup.exe` (tamanho: 44.8 MB) utilizando o compilador oficial Inno Setup 6.
-   - Publicação do executável `SINc.exe` em modo *Self-Contained Single-File* com compressão interna habilitada (não requer instalação do .NET Runtime no cliente).
+   - Geração do instalador executável `NexoCompras_SINc_Setup.exe` utilizando Inno Setup 6.
+   - Publicação do executável `SINc.exe` em modo *Self-Contained Single-File* com compressão interna habilitada.
    - Destino padronizado: `C:\Program Files\Nexo Compras\SINc\`.
    - Atalhos no Menu Iniciar (pasta `Nexo Compras`) e Área de Trabalho opcional.
-   - Desinstalador inteligente que protege credenciais criptografadas via Windows DPAPI, tokens e filas offline de contingência por padrão.
-   - Preparação para atualizações futuras sem perda de configurações (*In-Place Upgrade* com AppId fixo).
-
-3. **Monitoramento e Controle de Versões no Painel Administrativo**:
-   - O SINc reporta sua versão (`v2.4.0`) e nome de máquina durante os ciclos periódicos de heartbeat.
-   - O Painel Administrativo Web (`AdminSincronizadores.tsx`) exibe a versão instalada de cada agente, status operacional em tempo real, última comunicação e opções de revogação/regeneração de código.
+   - Desinstalador inteligente que protege credenciais criptografadas via Windows DPAPI.
 
 ---
 
-## 2. Matriz de Testes Automatizados Executados
+## 3. Matriz de Testes Automatizados Executados
 
 Foram executados 27 testes automatizados de integração e unidade cobrindo isolamento multitenancy, descoberta de schema, relatórios, ciclo de vida de cotações e o novo diagnóstico PostgreSQL:
 
@@ -88,3 +117,4 @@ C:\Users\sergi\OneDrive\Desktop\NEXO_COMPRAS_TESTE\
 ## 4. Conclusão de Conformidade
 
 Todas as exigências descritas na solicitação foram plenamente atendidas com código limpo, testes unitários automatizados, documentação técnica em português e artefatos compilados prontos para uso em ambiente de produção e clientes finais.
+

@@ -45,3 +45,4 @@ Se for necessário retornar para uma versão anterior por qualquer motivo operac
 2. Execute o instalador da versão anterior.
 3. Conclua o assistente normalmente.
 4. O SINc iniciará mantendo todas as credenciais e histórico da empresa intactos.
+
