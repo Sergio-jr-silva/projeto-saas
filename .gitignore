@@ -1,12 +1,16 @@
-# Ignorar bin√°rios descompactados maiores que 50MB
-# (O script pedidos_compras.bat descompacta automaticamente SINc.zip e BM.FDB.zip se necess√°rio)
+# Ignorar bin·rios descompactados maiores que 50MB
+# (O script pedidos_compras.bat descompacta automaticamente SINc.zip e BM.FDB.zip se necess·rio)
 SINc/SINc.exe
 BANCO_EXEMPLO/BM.FDB
 
-# Arquivos de depura√ß√£o
+# Arquivos de depuraÁ„o e execut·veis de compilaÁ„o pesados
 *.pdb
+**/staging/**
+**/node_modules/
+**/bin/
+**/obj/
+**/storage/
 
 # Dados locais do agente e logs
 data/
 logs/
-

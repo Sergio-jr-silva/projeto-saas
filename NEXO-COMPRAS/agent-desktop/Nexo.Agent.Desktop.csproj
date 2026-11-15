@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetPlatformMoniker>Windows,Version=7.0</TargetPlatformMoniker>
+    <TargetPlatformDisplayName>Windows</TargetPlatformDisplayName>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Nexo.Agent.Desktop</RootNamespace>
+    <AssemblyName>SINc</AssemblyName>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\agent-core\Nexo.Agent.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FirebirdSql.Data.FirebirdClient" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

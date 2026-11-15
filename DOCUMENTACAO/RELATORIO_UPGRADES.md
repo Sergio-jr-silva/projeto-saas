@@ -118,3 +118,31 @@ C:\Users\sergi\OneDrive\Desktop\NEXO_COMPRAS_TESTE\
 
 Todas as exigÃªncias descritas na solicitaÃ§Ã£o foram plenamente atendidas com cÃ³digo limpo, testes unitÃ¡rios automatizados, documentaÃ§Ã£o tÃ©cnica em portuguÃªs e artefatos compilados prontos para uso em ambiente de produÃ§Ã£o e clientes finais.
 
+
+---
+
+# 5. Upgrades v2.6 — Filtro de Estoque, Segurança Avançada e Infraestrutura Docker/Railway
+
+## 5.1. Correção do Filtro de Estoque e Suporte a NULL
+- **Problema corrigido:** Produtos com estoque NULL no ERP eram forçados para 0 e exibidos incorretamente.
+- **Classificação Formal:**
+  - Zerado: Quantidade disponível igual a 0.
+  - Critico: Quantidade disponível > 0 e <= EstoqueCritico.
+  - Baixo: Quantidade disponível > EstoqueCritico e <= EstoqueMinimo.
+  - Normal: Quantidade disponível > EstoqueMinimo.
+  - Indeterminado: Quantidade desconhecida no ERP (NULL). Não convertida para 0.
+- **Frontend & API:** Filtro 'Apenas produtos em nível Baixo, Crítico ou Zerado' atualizado com paginação e contadores específicos.
+
+## 5.2. Segurança e Sessões Multi-Tenant
+- **Proteção contra SQL Injection:** Consultas 100% parametrizadas via EF Core / LINQ e sanitização de buscas.
+- **Política de Senhas:** Mínimo de 10 a 128 caracteres (maiúsculas, minúsculas, dígitos e rejeição de senhas fracas).
+- **Proteção contra Força Bruta:** Bloqueio temporário (15 minutos) após 5 tentativas incorretas.
+- **Gestão de Sessões:** Refresh tokens rotativos com hash SHA-256 e revogação imediata da família em caso de detecção de reúso de token.
+- **Upload Seguro:** Validação de magic bytes e sanitização de SVG contra XSS.
+- **Isolamento de Tenants:** EF Core Global Query Filters garantindo total isolamento por Tenant ID em todas as entidades.
+
+## 5.3. Docker & Infraestrutura para Railway
+- **Frontend Dockerfile:** Multi-stage build com Node 22 e Nginx 1.27 Alpine com injeção de URL da API em tempo de execução via docker-entrypoint.sh e config.js.
+- **Backend Dockerfile:** Multi-stage build com .NET 9 SDK e runtime ASP.NET 9 Alpine, execução não-root e suporte à variável PORT do Railway.
+- **docker-compose.yml:** Orquestração completa local com PostgreSQL 16 Alpine, Backend e Frontend.
+- **DEPLOY_RAILWAY.md:** Guia detalhado passo a passo para deploy em produção no Railway com PostgreSQL gerenciado, CORS, SSL automático e backups.
