@@ -43,10 +43,19 @@ public class JwtService(JwtOptions o) : IJwtService
             new(ClaimTypes.Name, u.Nome),
             new(ClaimTypes.Email, u.Email),
             new(ClaimTypes.Role, u.Perfil),
+            new("perfil", u.Perfil),
             new("tenant_id", u.TenantId?.ToString() ?? string.Empty),
             new("sid", sessionId.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
         };
+
+        if (u.Perfil == "AdministradorGeral" || u.Perfil == "PlatformAdmin")
+        {
+            if (!claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "PlatformAdmin"))
+                claims.Add(new(ClaimTypes.Role, "PlatformAdmin"));
+            if (!claims.Any(c => c.Type == ClaimTypes.Role && c.Value == "AdministradorGeral"))
+                claims.Add(new(ClaimTypes.Role, "AdministradorGeral"));
+        }
         var exp = DateTime.UtcNow.AddMinutes(o.AccessTokenMinutes);
         var token = new JwtSecurityToken(o.Issuer, o.Audience, claims, notBefore: DateTime.UtcNow.AddSeconds(-5), expires: exp,
             signingCredentials: new SigningCredentials(o.UserKey, SecurityAlgorithms.HmacSha256));

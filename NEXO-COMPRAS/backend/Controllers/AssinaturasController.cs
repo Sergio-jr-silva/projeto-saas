@@ -11,7 +11,7 @@ namespace Nexo.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "TenantAdmin,PlatformAdmin")]
+[Authorize(Roles = "TenantAdmin,Buyer,Viewer,PlatformAdmin,AdministradorGeral")]
 public class AssinaturasController(IAssinaturaService assinaturaService, NexoDbContext db, ITenantContext tenant) : ControllerBase
 {
     private Guid ObterTenantId()
@@ -28,6 +28,31 @@ public class AssinaturasController(IAssinaturaService assinaturaService, NexoDbC
         var tenantId = ObterTenantId();
         var detalhe = await assinaturaService.ObterAssinaturaAtualAsync(tenantId);
         return Ok(detalhe);
+    }
+
+    [HttpGet("historico-comercial")]
+    public async Task<IActionResult> HistoricoComercial()
+    {
+        var tenantId = ObterTenantId();
+        var lista = await assinaturaService.ListarHistoricoComercialTenantAsync(tenantId);
+        return Ok(lista);
+    }
+
+    [HttpGet("solicitacoes")]
+    public async Task<IActionResult> MinhasSolicitacoes()
+    {
+        var tenantId = ObterTenantId();
+        var lista = await assinaturaService.ListarSolicitacoesTenantAsync(tenantId);
+        return Ok(lista);
+    }
+
+    [HttpPost("solicitar-alteracao")]
+    [Authorize(Roles = "TenantAdmin,PlatformAdmin,AdministradorGeral")]
+    public async Task<IActionResult> SolicitarAlteracao([FromBody] SolicitarAlteracaoPlanoRequest req)
+    {
+        var tenantId = ObterTenantId();
+        var sol = await assinaturaService.SolicitarAlteracaoPlanoAsync(tenantId, tenant.CurrentUserId, tenant.UserName ?? "Cliente", req);
+        return Ok(sol);
     }
 
     [HttpGet("planos")]

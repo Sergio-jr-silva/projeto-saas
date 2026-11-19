@@ -2,15 +2,32 @@ namespace Nexo.Api.Models;
 
 public class Tenant : BaseEntity
 {
+    public string Slug { get; set; } = string.Empty;
     public string RazaoSocial { get; set; } = string.Empty;
     public string NomeFantasia { get; set; } = string.Empty;
     public string Cnpj { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Telefone { get; set; } = string.Empty;
-    public string Status { get; set; } = "Ativo"; // Ativo, Bloqueado, Pendente
+    public string Status { get; set; } = "Ativo"; // Ativo, Bloqueado, Suspenso, Inativo, Pendente
     public Guid? PlanoId { get; set; }
     public Plano? Plano { get; set; }
     public DateTime? DataExpiracao { get; set; }
+
+    // Precificação Dinâmica e Condições Comerciais (R$ 50,00 a R$ 250,00)
+    public string ModuloContratado { get; set; } = "Basico"; // Basico, RelatoriosAvancados, CompletoServicos
+    public string VolumeUtilizacao { get; set; } = "Baixo"; // Baixo, Medio, Alto
+    public decimal MensalidadeCalculada { get; set; } = 50.00m;
+    public decimal DescontoComercial { get; set; } = 0.00m;
+    public decimal AjusteManual { get; set; } = 0.00m;
+    public decimal MensalidadeFinal { get; set; } = 50.00m;
+    public string JustificativaPreco { get; set; } = string.Empty;
+    public DateTime? DataInicioCobranca { get; set; }
+    public DateTime? ProximoVencimento { get; set; }
+    public string SituacaoFinanceira { get; set; } = "Regular"; // Regular, Pendente, Inadimplente, Suspenso, Isento, Trial
+    public int MaxUsuariosContratado { get; set; } = 0; // 0 = utiliza limite do Plano atual; > 0 = limite customizado pelo Admin Geral
+    public int MaxFiliaisContratado { get; set; } = 0;  // 0 = utiliza limite do Plano atual; > 0 = limite customizado pelo Admin Geral
+    public int MaxProdutosContratado { get; set; } = 10000;
+    public int MaxSincronizadoresContratado { get; set; } = 3;
 
     // Dados Cadastrais e Fiscais da Empresa
     public string InscricaoEstadual { get; set; } = string.Empty;
@@ -32,6 +49,7 @@ public class Tenant : BaseEntity
     public ICollection<Filial> Filiais { get; set; } = new List<Filial>();
     public ICollection<Assinatura> Assinaturas { get; set; } = new List<Assinatura>();
     public ICollection<Agente> Agentes { get; set; } = new List<Agente>();
+    public ICollection<HistoricoComercialTenant> HistoricosComerciais { get; set; } = new List<HistoricoComercialTenant>();
 }
 
 public class Plano : BaseEntity
@@ -268,4 +286,107 @@ public class LogAuditoria : BaseEntity
     public string EntidadeId { get; set; } = string.Empty;
     public string DadosJson { get; set; } = "{}";
     public string Ip { get; set; } = string.Empty;
+}
+
+/// <summary>Tabela versionada de precificação dinâmica SaaS (R$ 50,00 a R$ 250,00).</summary>
+public class ConfiguracaoPrecificacao : BaseEntity
+{
+    public int Versao { get; set; } = 1;
+    public bool Ativa { get; set; } = true;
+    public decimal MensalidadeBase { get; set; } = 50.00m;
+    public decimal ValorMinimo { get; set; } = 50.00m;
+    public decimal ValorMaximo { get; set; } = 250.00m;
+
+    // Critério 1: Quantidade de produtos
+    public decimal AdicProdFaixa1 { get; set; } = 0.00m;   // Até 1.000
+    public decimal AdicProdFaixa2 { get; set; } = 15.00m;  // 1.001 a 3.000
+    public decimal AdicProdFaixa3 { get; set; } = 30.00m;  // 3.001 a 8.000
+    public decimal AdicProdFaixa4 { get; set; } = 45.00m;  // Acima de 8.000
+
+    // Critério 2: Quantidade de filiais
+    public decimal AdicFilialFaixa1 { get; set; } = 0.00m;  // 1 filial
+    public decimal AdicFilialFaixa2 { get; set; } = 20.00m; // 2 a 3
+    public decimal AdicFilialFaixa3 { get; set; } = 40.00m; // 4 a 6
+    public decimal AdicFilialFaixa4 { get; set; } = 60.00m; // Acima de 6
+
+    // Critério 3: Quantidade de usuários
+    public decimal AdicUsuarioFaixa1 { get; set; } = 0.00m;  // 1 a 2
+    public decimal AdicUsuarioFaixa2 { get; set; } = 10.00m; // 3 a 5
+    public decimal AdicUsuarioFaixa3 { get; set; } = 20.00m; // 6 a 10
+    public decimal AdicUsuarioFaixa4 { get; set; } = 30.00m; // Acima de 10
+
+    // Critério 4: Sincronizadores SINc
+    public decimal AdicSincFaixa1 { get; set; } = 0.00m;  // 1
+    public decimal AdicSincFaixa2 { get; set; } = 10.00m; // 2 a 3
+    public decimal AdicSincFaixa3 { get; set; } = 20.00m; // 4 ou mais
+
+    // Critério 5: Volume de utilização
+    public decimal AdicVolumeBaixo { get; set; } = 0.00m;
+    public decimal AdicVolumeMedio { get; set; } = 10.00m;
+    public decimal AdicVolumeAlto { get; set; } = 25.00m;
+
+    // Critério 6: Módulos contratados
+    public decimal AdicModuloBasico { get; set; } = 0.00m;      // Compras e cotações básicas
+    public decimal AdicModuloRelatorios { get; set; } = 15.00m; // Compras e relatórios avançados
+    public decimal AdicModuloCompleto { get; set; } = 30.00m;   // Compras, relatórios e serviços
+
+    public string RegrasJson { get; set; } = "{}";
+    public string AtualizadoPor { get; set; } = "Sistema";
+    public string MotivoAlteracao { get; set; } = "Configuração inicial";
+}
+
+/// <summary>Histórico de alterações comerciais, precificação, descontos e ajustes manuais de cada empresa.</summary>
+public class HistoricoComercialTenant : BaseEntity, ITenantEntity
+{
+    public Guid TenantId { get; set; }
+    public Tenant? Tenant { get; set; }
+    public string TipoAlteracao { get; set; } = "Precificacao"; // Precificacao, Slug, Status, SolicitacaoCliente, Pagamento
+    public decimal MensalidadeAnterior { get; set; }
+    public decimal MensalidadeCalculada { get; set; }
+    public decimal DescontoAplicado { get; set; }
+    public decimal AjusteManual { get; set; }
+    public decimal MensalidadeFinal { get; set; }
+    public string ModuloContratado { get; set; } = "Basico";
+    public string VolumeUtilizacao { get; set; } = "Baixo";
+    public string Justificativa { get; set; } = string.Empty;
+    public string AlteradoPor { get; set; } = string.Empty;
+    public bool NotificadoCliente { get; set; } = true;
+    public int VersaoTabelaPrecos { get; set; } = 1;
+    public string SnapshotConsumoJson { get; set; } = "{}";
+}
+
+/// <summary>Histórico de transações e eventos de webhooks de cobrança recorrente (desacoplado de gateway).</summary>
+public class TransacaoPagamento : BaseEntity, ITenantEntity
+{
+    public Guid TenantId { get; set; }
+    public Tenant? Tenant { get; set; }
+    public Guid? FaturaId { get; set; }
+    public Fatura? Fatura { get; set; }
+    public Guid? AssinaturaId { get; set; }
+    public Assinatura? Assinatura { get; set; }
+    public string Gateway { get; set; } = "Configuravel";
+    public string GatewayTransacaoId { get; set; } = string.Empty;
+    public string Evento { get; set; } = string.Empty; // fatura.gerada, fatura.paga, fatura.vencida, fatura.falha, assinatura.suspensa, assinatura.reativada
+    public decimal Valor { get; set; }
+    public string Status { get; set; } = "Pendente";
+    public string MetodoPagamento { get; set; } = string.Empty;
+    public string ComprovanteUrl { get; set; } = string.Empty;
+    public string PayloadJson { get; set; } = "{}";
+    public DateTime? ConfirmadoEm { get; set; }
+}
+
+/// <summary>Solicitações de alteração de plano/módulos enviadas pelo cliente para aprovação do Admin Geral.</summary>
+public class SolicitacaoAlteracaoPlano : BaseEntity, ITenantEntity
+{
+    public Guid TenantId { get; set; }
+    public Tenant? Tenant { get; set; }
+    public Guid? SolicitadoPorUsuarioId { get; set; }
+    public string SolicitadoPorNome { get; set; } = string.Empty;
+    public string ModuloAtual { get; set; } = "Basico";
+    public string ModuloSolicitado { get; set; } = "CompletoServicos";
+    public string ObservacoesCliente { get; set; } = string.Empty;
+    public string Status { get; set; } = "Pendente"; // Pendente, Aprovada, Recusada
+    public string RespostaAdmin { get; set; } = string.Empty;
+    public string AnalisadoPor { get; set; } = string.Empty;
+    public DateTime? AnalisadoEm { get; set; }
 }

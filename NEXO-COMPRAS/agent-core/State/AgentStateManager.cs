@@ -54,6 +54,11 @@ public class AgentState
     public int TotalProdutosSincronizados { get; set; }
     public int TotalEstoqueSincronizado { get; set; }
     public int TotalFornecedoresSincronizados { get; set; }
+    public bool CargaInicialConcluida { get; set; }
+    public string SituacaoCargaInicial { get; set; } = "Pendente de carga inicial";
+    public int UltimosProdutosNovos { get; set; }
+    public int UltimosProdutosModificados { get; set; }
+    public int UltimosProdutosEnviados { get; set; }
     public List<HistoricoSincronizacaoItem> Historico { get; set; } = new();
     public List<LogEntry> LogsRecentes { get; set; } = new();
 }

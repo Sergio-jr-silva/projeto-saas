@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -30,12 +30,23 @@ import {
 export const AppLayout: React.FC = () => {
   const { user, tenant, logout } = useAuth();
   const location = useLocation();
+  const { slug } = useParams<{ slug?: string }>();
 
-  const isPlatformAdmin = user?.perfil === 'PlatformAdmin';
+  const isPlatformAdmin = user?.perfil === 'PlatformAdmin' || user?.perfil === 'AdministradorGeral';
+  const activeSlug = !isPlatformAdmin ? (slug || tenant?.slug) : undefined;
+
+  const resolveNavPath = (to: string) => {
+    if (isPlatformAdmin || to.startsWith('/admin')) return to;
+    if (activeSlug) {
+      const clean = to.startsWith('/') ? to : `/${to}`;
+      return `/${activeSlug}${clean}`;
+    }
+    return to;
+  };
 
   const NavItem = ({ to, icon: Icon, label, end = true }: { to: string; icon: any; label: string; end?: boolean }) => (
     <NavLink
-      to={to}
+      to={resolveNavPath(to)}
       end={end}
       className={({ isActive }) =>
         `nav-link ${isActive ? 'active' : ''}`
@@ -133,6 +144,7 @@ export const AppLayout: React.FC = () => {
               <NavItem to="/admin/sincronizadores" icon={RefreshCw} label="Sincronizadores SINc" />
 
               <SectionTitle title="ACESSO & COMERCIAL" />
+              <NavItem to="/admin/precificacao" icon={CreditCard} label="Precificação Dinâmica" />
               <NavItem to="/admin/usuarios" icon={Users} label="Usuários de Clientes" />
               <NavItem to="/admin/plans" icon={Database} label="Planos Comerciais" />
             </>

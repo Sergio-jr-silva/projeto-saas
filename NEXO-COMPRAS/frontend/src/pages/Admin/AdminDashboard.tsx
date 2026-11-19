@@ -123,24 +123,24 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* METRICAS KPI */}
-      <div className="grid-cols-4" style={{ marginBottom: '28px', gap: '16px' }}>
+      <div className="grid-cols-4" style={{ marginBottom: '16px', gap: '16px' }}>
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600 }}>
             <Building2 size={16} color="var(--blue-primary)" />
-            EMPRESAS CLIENTES
+            EMPRESAS CADASTRADAS
           </div>
           <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-main)', marginTop: '8px' }}>
             {totalEmpresas}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            {empresasAtivas} ativas • {empresasBloqueadas} bloqueadas
+            Clientes ativos: <strong>{empresasAtivas}</strong> • Suspensas: {empresasBloqueadas}
           </div>
         </div>
 
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600 }}>
             <Store size={16} color="var(--blue-primary)" />
-            FILIAIS GLOBAIS
+            FILIAIS CADASTRADAS
           </div>
           <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-main)', marginTop: '8px' }}>
             {data?.totalFiliais ?? 0}
@@ -153,7 +153,7 @@ export const AdminDashboard: React.FC = () => {
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600 }}>
             <RefreshCw size={16} color="var(--green)" />
-            SINCRONIZADORES (SINc)
+            SINCRONIZADORES ATIVOS
           </div>
           <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-main)', marginTop: '8px' }}>
             {data?.totalSincronizadores ?? 0}
@@ -173,6 +173,45 @@ export const AdminDashboard: React.FC = () => {
           </div>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
             Receita Mensal Recorrente
+          </div>
+        </div>
+      </div>
+
+      {/* SEGUNDA LINHA DE INDICADORES REAIS DO BANCO (PRODUTOS, FORNECEDORES, COTAÇÕES, PEDIDOS E OS) */}
+      <div className="grid-cols-4" style={{ marginBottom: '28px', gap: '16px' }}>
+        <div className="card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Produtos Sincronizados
+          </div>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>
+            {data?.totalProdutos ?? 0}
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Fornecedores Sincronizados
+          </div>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>
+            {data?.totalFornecedores ?? 0}
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Cotações Realizadas
+          </div>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>
+            {data?.totalCotacoes ?? 0}
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '14px 18px' }}>
+          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Pedidos & Ordens de Serviço
+          </div>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>
+            {data?.totalPedidos ?? 0} ped. • {data?.totalOrdensServico ?? 0} OS
           </div>
         </div>
       </div>

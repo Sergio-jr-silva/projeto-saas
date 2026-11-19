@@ -16,9 +16,15 @@ export function resolveApiBaseUrl(): string {
     return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
   }
 
-  // 4. Detecção automática de host remoto (quando acessado via LAN / IP de outro computador)
+  // 4. Detecção automática de domínio de produção (nexoscompras.com.br / Railway) e LAN
   if (typeof window !== 'undefined' && window.location) {
-    const { protocol, hostname } = window.location;
+    const { protocol, hostname, origin } = window.location;
+    if (hostname && hostname.includes('nexoscompras.com.br')) {
+      return 'https://api.nexoscompras.com.br/api';
+    }
+    if (hostname && hostname.endsWith('.up.railway.app')) {
+      return `${origin}/api`;
+    }
     if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && protocol.startsWith('http')) {
       return `${protocol}//${hostname}:5000/api`;
     }
@@ -26,6 +32,24 @@ export function resolveApiBaseUrl(): string {
 
   // 5. Fallback padrão local
   return 'http://localhost:5000/api';
+}
+
+export const RESERVED_ROUTES = new Set([
+  'login', 'admin', 'planos', 'api', 'cadastro', 'recuperar-senha',
+  'cotacao', 'portal-servico', 'dashboard', 'produtos', 'fornecedores',
+  'cotacoes', 'servicos', 'pedidos', 'relatorios', 'configuracoes',
+  'usuarios', 'filiais', 'assinatura', 'integracao', 'sincronizacao',
+  'historico', 'comparacao', 'economia', 'analise-fornecedores',
+  'health', 'static', 'assets'
+]);
+
+export function getActiveCompanySlugFromUrl(): string | null {
+  if (typeof window === 'undefined' || !window.location) return null;
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  if (parts.length === 0) return null;
+  const first = parts[0].toLowerCase();
+  if (RESERVED_ROUTES.has(first)) return null;
+  return first;
 }
 
 class ApiService {
@@ -55,16 +79,22 @@ class ApiService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    const activeSlug = getActiveCompanySlugFromUrl();
+    if (activeSlug) {
+      headers['X-Tenant-Slug'] = activeSlug;
+    }
+
     const baseUrl = this.getBaseUrl();
     const response = await fetch(`${baseUrl}${endpoint}`, {
       ...options,
       headers,
     });
 
-    if (response.status === 401) {
+    if (response.status === 401 && !endpoint.startsWith('/auth/login')) {
       this.clearToken();
-      if (!window.location.pathname.startsWith('/login')) {
-        window.location.href = '/login';
+      const loginPath = activeSlug ? `/${activeSlug}/login` : '/login';
+      if (window.location.pathname !== loginPath && !window.location.pathname.endsWith('/login')) {
+        window.location.href = loginPath;
       }
       throw new Error('Sessão expirada. Faça login novamente.');
     }
@@ -72,7 +102,11 @@ class ApiService {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.erro || `Erro HTTP ${response.status}`);
+      const err: any = new Error(data.erro || `Erro HTTP ${response.status}`);
+      err.status = response.status;
+      err.codigo = data.codigo;
+      err.data = data;
+      throw err;
     }
 
     return data as T;

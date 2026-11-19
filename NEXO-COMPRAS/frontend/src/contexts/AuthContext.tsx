@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, TenantSummary } from '../types';
-import { api } from '../services/api';
+import { api, getActiveCompanySlugFromUrl } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
   tenant: TenantSummary | null;
   loading: boolean;
-  login: (email: string, senha: string) => Promise<{ user: User; tenant: TenantSummary | null }>;
+  login: (email: string, senha: string, slug?: string) => Promise<{ user: User; tenant: TenantSummary | null }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -41,10 +41,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const login = async (email: string, senha: string) => {
+  const login = async (email: string, senha: string, slug?: string) => {
     const res = await api.post<{ token: string; usuario: User; tenant: TenantSummary | null }>('/auth/login', {
       email,
       senha,
+      slug,
     });
     api.setToken(res.token);
     setUser(res.usuario);
@@ -53,10 +54,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    const urlSlug = getActiveCompanySlugFromUrl() || tenant?.slug;
     api.clearToken();
     setUser(null);
     setTenant(null);
-    window.location.href = '/login';
+    window.location.href = urlSlug ? `/${urlSlug}/login` : '/login';
   };
 
   return (

@@ -38,6 +38,7 @@ public class MainForm : Form
     private Label _lblStatusInternet = null!;
     private Label _lblStatusBanco = null!;
     private Label _lblStatusSync = null!;
+    private Label _lblCargaInicial = null!;
     private Label _lblUltimaSync = null!;
 
     private RichTextBox _rtbLog = null!;
@@ -259,15 +260,16 @@ public class MainForm : Form
         pnlRow2.Controls.AddRange(new Control[] { cardNet, cardDb, cardSync });
         Controls.Add(pnlRow2);
 
-        // Fileira 3: Última Sincronização
+        // Fileira 3: Situação da Carga Inicial & Última Sincronização / Estatísticas
         var pnlRow3 = new Panel
         {
             Location = new Point(20, 251),
             Size = new Size(825, 65),
             BackColor = Color.Transparent
         };
-        var cardUltima = CriarCard(0, 0, 825, 65, "ÚLTIMA SINCRONIZAÇÃO REALIZADA", out _lblUltimaSync);
-        pnlRow3.Controls.Add(cardUltima);
+        var cardCarga = CriarCard(0, 0, 310, 65, "SITUAÇÃO DA CARGA INICIAL", out _lblCargaInicial);
+        var cardUltima = CriarCard(325, 0, 500, 65, "ÚLTIMA EXECUÇÃO • ESTATÍSTICAS", out _lblUltimaSync);
+        pnlRow3.Controls.AddRange(new Control[] { cardCarga, cardUltima });
         Controls.Add(pnlRow3);
 
         // 3. ACTION BAR - BOTÃO PRINCIPAL "SINCRONIZAR" (Único e destacado)
@@ -474,10 +476,37 @@ public class MainForm : Form
         _lblStatusSync.Text = s.Status == "Sincronizando" ? "⏳ Sincronizando..." : $"🟢 {s.Status}";
         _lblStatusSync.ForeColor = s.Status == "Erro" ? Color.FromArgb(220, 38, 38) : Color.FromArgb(37, 99, 235);
 
-        // 6. Última Sincronização
-        _lblUltimaSync.Text = s.UltimaSincronizacao.HasValue
-            ? s.UltimaSincronizacao.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss")
-            : "Nenhuma sincronização concluída";
+        // 6. Situação da Carga Inicial
+        if (s.CargaInicialConcluida)
+        {
+            _lblCargaInicial.Text = "🟢 Carga inicial concluída";
+            _lblCargaInicial.ForeColor = Color.FromArgb(22, 163, 74);
+        }
+        else
+        {
+            _lblCargaInicial.Text = "🟡 Pendente de carga inicial";
+            _lblCargaInicial.ForeColor = Color.FromArgb(217, 119, 6);
+        }
+
+        // 7. Última Execução e Estatísticas
+        if (s.UltimaSincronizacao.HasValue)
+        {
+            var dataHora = s.UltimaSincronizacao.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss");
+            if (s.UltimosProdutosEnviados > 0)
+            {
+                _lblUltimaSync.Text = $"{dataHora} • Novos: {s.UltimosProdutosNovos} | Modificados: {s.UltimosProdutosModificados} | Enviados: {s.UltimosProdutosEnviados}";
+            }
+            else
+            {
+                _lblUltimaSync.Text = $"{dataHora} • Sem alterações pendentes (0 enviados)";
+            }
+            _lblUltimaSync.ForeColor = Color.FromArgb(30, 41, 59);
+        }
+        else
+        {
+            _lblUltimaSync.Text = "Nenhuma sincronização concluída";
+            _lblUltimaSync.ForeColor = Color.FromArgb(100, 116, 139);
+        }
 
         // Atualizar Bandeja
         var filialStr = creds?.FilialNome ?? s.Empresa.FilialNome ?? "Matriz";

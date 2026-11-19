@@ -74,13 +74,14 @@ public class DesktopSyncService
 
         _fbConnStr = $"User={fbUser};Password={fbPass};Database={fbDb};DataSource={fbHost};Port={fbPort};Dialect=3;Charset={fbChar};";
 
-        _baseUrl = config["NexoApi:BaseUrl"] ?? "http://localhost:5000";
-        _agentKey = config["NexoApi:AgentKey"] ?? "agt_demo_mercadinho_central_123456";
+        _baseUrl = config["NexoApi:BaseUrl"] ?? "https://nexoscompras.com.br";
+        _agentKey = config["NexoApi:AgentKey"] ?? string.Empty;
 
         var timeoutSec = int.TryParse(config["NexoApi:TimeoutSeconds"], out var ts) ? ts : 25;
 
         _http = new HttpClient { BaseAddress = new Uri(_baseUrl.TrimEnd('/') + "/") };
-        _http.DefaultRequestHeaders.Add("X-Agent-Key", _agentKey);
+        if (!string.IsNullOrWhiteSpace(_agentKey))
+            _http.DefaultRequestHeaders.Add("X-Agent-Key", _agentKey);
         _http.Timeout = TimeSpan.FromSeconds(timeoutSec);
     }
 

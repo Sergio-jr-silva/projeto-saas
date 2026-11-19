@@ -25,10 +25,12 @@ public class PlansController(NexoDbContext db) : ControllerBase
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "PlatformAdmin")]
-public class AdminController(NexoDbContext db, IAuditService audit) : ControllerBase
+[Authorize(Roles = "PlatformAdmin,AdministradorGeral")]
+public class AdminController(NexoDbContext db, IAuditService audit, DatabaseResetService resetService, IPrecificacaoService precificacaoService) : ControllerBase
 {
-    private static TenantSummaryDto ToDto(Tenant t) => new(t.Id, t.RazaoSocial, t.NomeFantasia, t.Cnpj, t.Status, t.Plano?.Nome);
+    private static TenantSummaryDto ToDto(Tenant t) => new(
+        t.Id, t.RazaoSocial, t.NomeFantasia, t.Cnpj, t.Status, t.Plano?.Nome, t.LogoUrl,
+        t.Slug, t.MensalidadeFinal > 0 ? t.MensalidadeFinal : 50m, t.ModuloContratado, t.SituacaoFinanceira);
 
     // =========================================================================
     // SEÃ‡ÃƒO A: Dashboard Administrativo Global
@@ -38,13 +40,19 @@ public class AdminController(NexoDbContext db, IAuditService audit) : Controller
     {
         var totalEmpresas = await db.Tenants.CountAsync();
         var empresasAtivas = await db.Tenants.CountAsync(t => t.Status == "Ativo");
-        var empresasBloqueadas = await db.Tenants.CountAsync(t => t.Status == "Bloqueado");
+        var empresasBloqueadas = await db.Tenants.CountAsync(t => t.Status != "Ativo");
         var totalFiliais = await db.Filiais.CountAsync();
-        var totalSincronizadores = await db.Agentes.CountAsync();
+        var totalSincronizadores = await db.Agentes.CountAsync(a => !a.Revogado);
         var sincronizadoresOnline = await db.Agentes.CountAsync(a => a.Status == "Online" && !a.Revogado);
         var sincronizadoresOffline = await db.Agentes.CountAsync(a => a.Status != "Online" && a.Status != "PendenteAtivacao" && !a.Revogado);
         var sincronizadoresPendentes = await db.Agentes.CountAsync(a => a.Status == "PendenteAtivacao" && !a.Revogado);
-        var totalUsuarios = await db.Usuarios.CountAsync();
+        var totalUsuarios = await db.Usuarios.CountAsync(u => u.TenantId != null);
+
+        var totalProdutos = await db.Produtos.CountAsync();
+        var totalFornecedores = await db.Fornecedores.CountAsync();
+        var totalCotacoes = await db.Cotacoes.CountAsync() + await db.CotacoesServico.CountAsync();
+        var totalPedidos = await db.PedidosCompra.CountAsync();
+        var totalOrdensServico = await db.OrdensServico.CountAsync();
 
         var mrr = await db.Assinaturas.Where(a => a.Status == "Ativa" || a.Status == "Teste").SumAsync(a => (decimal?)a.Valor) ?? 0;
         var ultimos = await db.Tenants.Include(t => t.Plano).OrderByDescending(t => t.DataCriacao).Take(6).ToListAsync();
@@ -69,6 +77,11 @@ public class AdminController(NexoDbContext db, IAuditService audit) : Controller
             sincronizadoresOffline,
             sincronizadoresPendentes,
             totalUsuarios,
+            totalProdutos,
+            totalFornecedores,
+            totalCotacoes,
+            totalPedidos,
+            totalOrdensServico,
             mrrEstimado = mrr,
             ultimasEmpresas = ultimos.Select(ToDto).ToList(),
             ultimosTenants = ultimos.Select(ToDto).ToList(),
@@ -107,7 +120,9 @@ public class AdminController(NexoDbContext db, IAuditService audit) : Controller
 
         return Ok(new
         {
-            t.Id, t.RazaoSocial, t.NomeFantasia, t.Cnpj, t.Email, t.Telefone, t.Status, t.DataCriacao, t.DataExpiracao,
+            t.Id, t.Slug, t.RazaoSocial, t.NomeFantasia, t.Cnpj, t.Email, t.Telefone, t.Status, t.DataCriacao, t.DataExpiracao,
+            t.ModuloContratado, t.VolumeUtilizacao, t.MensalidadeCalculada, t.DescontoComercial, t.AjusteManual, t.MensalidadeFinal,
+            t.SituacaoFinanceira, t.DataInicioCobranca, t.ProximoVencimento,
             Plano = t.Plano == null ? null : new { t.Plano.Id, t.Plano.Nome, t.Plano.Mensalidade },
             Usuarios = t.Usuarios.Select(u => new { u.Id, u.Nome, u.Email, u.Perfil, u.Ativo, u.UltimoLogin }),
             Filiais = t.Filiais.Select(f => new { f.Id, f.Codigo, f.Nome, f.Cnpj, f.Token, f.TokenRevogado, f.Ativa }),
@@ -118,41 +133,118 @@ public class AdminController(NexoDbContext db, IAuditService audit) : Controller
     [HttpPut("tenants/{id:guid}/status")]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateTenantStatusRequest r)
     {
-        if (r.Status is not ("Ativo" or "Bloqueado" or "Pendente")) return BadRequest(new { erro = "Status invÃ¡lido. Use Ativo, Bloqueado ou Pendente." });
+        if (r.Status is not ("Ativo" or "Bloqueado" or "Suspenso" or "Inativo" or "Encerrado" or "Pendente"))
+            return BadRequest(new { erro = "Status inválido. Use Ativo, Bloqueado, Suspenso, Inativo, Encerrado ou Pendente." });
         var t = await db.Tenants.FindAsync(id);
-        if (t == null) return NotFound(new { erro = "Empresa nÃ£o encontrada." });
+        if (t == null) return NotFound(new { erro = "Empresa não encontrada." });
         var anterior = t.Status;
         t.Status = r.Status;
-        audit.Add("StatusEmpresaAlterado", "Tenant", t.Id.ToString(), new { de = anterior, para = r.Status }, t.Id);
+
+        db.HistoricosComerciaisTenant.Add(new HistoricoComercialTenant
+        {
+            TenantId = t.Id,
+            TipoAlteracao = "Status",
+            MensalidadeAnterior = t.MensalidadeFinal,
+            MensalidadeCalculada = t.MensalidadeCalculada,
+            DescontoAplicado = t.DescontoComercial,
+            AjusteManual = t.AjusteManual,
+            MensalidadeFinal = t.MensalidadeFinal,
+            ModuloContratado = t.ModuloContratado,
+            VolumeUtilizacao = t.VolumeUtilizacao,
+            Justificativa = string.IsNullOrWhiteSpace(r.Motivo) ? $"Status alterado de {anterior} para {r.Status}" : r.Motivo.Trim(),
+            AlteradoPor = User.Identity?.Name ?? "AdministradorGeral",
+            NotificadoCliente = true
+        });
+
+        audit.Add("StatusEmpresaAlterado", "Tenant", t.Id.ToString(), new { de = anterior, para = r.Status, r.Motivo }, t.Id);
         await db.SaveChangesAsync();
-        return Ok(new { mensagem = $"Status da empresa atualizado para {t.Status}." });
+        return Ok(new { mensagem = $"Status da empresa atualizado para {t.Status}.", status = t.Status });
+    }
+
+    [HttpPut("tenants/{id:guid}/slug")]
+    public async Task<IActionResult> UpdateSlug(Guid id, [FromBody] UpdateTenantSlugRequest r)
+    {
+        var t = await db.Tenants.FindAsync(id);
+        if (t == null) return NotFound(new { erro = "Empresa não encontrada." });
+
+        var (valido, slugNorm, erroValidacao) = SlugHelper.ValidateSlug(r.Slug);
+        if (!valido) return BadRequest(new { erro = erroValidacao });
+
+        var emUso = await db.Tenants.IgnoreQueryFilters().AnyAsync(x => x.Id != id && x.Slug.ToLower() == slugNorm);
+        if (emUso) return BadRequest(new { erro = $"O endereço '/{slugNorm}' já está sendo utilizado por outra empresa." });
+
+        var slugAnterior = t.Slug;
+        t.Slug = slugNorm;
+
+        db.HistoricosComerciaisTenant.Add(new HistoricoComercialTenant
+        {
+            TenantId = t.Id,
+            TipoAlteracao = "Slug",
+            MensalidadeAnterior = t.MensalidadeFinal,
+            MensalidadeCalculada = t.MensalidadeCalculada,
+            DescontoAplicado = t.DescontoComercial,
+            AjusteManual = t.AjusteManual,
+            MensalidadeFinal = t.MensalidadeFinal,
+            ModuloContratado = t.ModuloContratado,
+            VolumeUtilizacao = t.VolumeUtilizacao,
+            Justificativa = string.IsNullOrWhiteSpace(r.Justificativa) ? $"Slug alterado de '/{slugAnterior}' para '/{slugNorm}'" : r.Justificativa.Trim(),
+            AlteradoPor = User.Identity?.Name ?? "AdministradorGeral",
+            NotificadoCliente = true
+        });
+
+        audit.Add("SlugEmpresaAlterado", "Tenant", t.Id.ToString(), new { de = slugAnterior, para = slugNorm, r.Justificativa }, t.Id);
+        await db.SaveChangesAsync();
+        return Ok(new { mensagem = $"Endereço da empresa atualizado para '/{t.Slug}'.", slug = t.Slug });
     }
 
     // =========================================================================
-    // SEÃ‡ÃƒO B / 4 / 8: Cadastro Completo de Empresa (Wizard em 5 Etapas)
+    // SEÇÃO B / 4 / 8: Cadastro Completo de Empresa (Wizard em 5 Etapas)
     // =========================================================================
     [HttpPost("empresas/cadastro-completo")]
     public async Task<IActionResult> CadastrarEmpresaCompleta([FromBody] CadastroCompletoEmpresaRequest r)
     {
-        // 1. ValidaÃ§Ãµes bÃ¡sicas
+        // 1. Validações básicas
         if (string.IsNullOrWhiteSpace(r.RazaoSocial))
-            return BadRequest(new { erro = "A RazÃ£o Social da empresa Ã© obrigatÃ³ria." });
+            return BadRequest(new { erro = "A Razão Social da empresa é obrigatória." });
 
         var cnpjLimpo = new string((r.Cnpj ?? "").Where(char.IsDigit).ToArray());
         if (cnpjLimpo.Length != 14)
-            return BadRequest(new { erro = "O CNPJ informado Ã© invÃ¡lido (deve conter 14 dÃ­gitos)." });
+            return BadRequest(new { erro = "O CNPJ informado é inválido (deve conter 14 dígitos)." });
 
         if (await db.Tenants.AnyAsync(t => t.Cnpj == cnpjLimpo))
-            return BadRequest(new { erro = $"JÃ¡ existe uma empresa cadastrada com o CNPJ {r.Cnpj}." });
+            return BadRequest(new { erro = $"Já existe uma empresa cadastrada com o CNPJ {r.Cnpj}." });
 
         if (string.IsNullOrWhiteSpace(r.EmailLogin) || !r.EmailLogin.Contains('@'))
-            return BadRequest(new { erro = "Informe um e-mail de acesso vÃ¡lido para o cliente." });
+            return BadRequest(new { erro = "Informe um e-mail de acesso válido para o cliente." });
 
         var emailCliente = r.EmailLogin.Trim().ToLowerInvariant();
         if (await db.Usuarios.AnyAsync(u => u.Email.ToLower() == emailCliente))
-            return BadRequest(new { erro = $"JÃ¡ existe um usuÃ¡rio no sistema com o e-mail '{emailCliente}'." });
+            return BadRequest(new { erro = $"Já existe um usuário no sistema com o e-mail '{emailCliente}'." });
 
-        // 2. CriaÃ§Ã£o do Tenant (Empresa)
+        // 1.1 Resolução e validação do Slug da empresa
+        string slugFinal;
+        if (!string.IsNullOrWhiteSpace(r.Slug))
+        {
+            var (valido, slugNorm, erroSlug) = SlugHelper.ValidateSlug(r.Slug);
+            if (!valido) return BadRequest(new { erro = erroSlug });
+            if (await db.Tenants.IgnoreQueryFilters().AnyAsync(x => x.Slug.ToLower() == slugNorm))
+                return BadRequest(new { erro = $"O endereço '/{slugNorm}' já está sendo utilizado por outra empresa." });
+            slugFinal = slugNorm;
+        }
+        else
+        {
+            var baseSlug = SlugHelper.NormalizeSlug(!string.IsNullOrWhiteSpace(r.NomeFantasia) ? r.NomeFantasia : r.RazaoSocial);
+            if (string.IsNullOrWhiteSpace(baseSlug) || SlugHelper.IsReservedSlug(baseSlug) || baseSlug.Length < 2)
+                baseSlug = $"empresa-{cnpjLimpo[..8]}";
+            slugFinal = baseSlug;
+            int suffix = 2;
+            while (await db.Tenants.IgnoreQueryFilters().AnyAsync(x => x.Slug.ToLower() == slugFinal))
+            {
+                slugFinal = $"{baseSlug}-{suffix++}";
+            }
+        }
+
+        // 2. Criação do Tenant (Empresa) com Precificação Dinâmica Inicial
         Guid? planoValidoId = null;
         Plano? plano = null;
         if (r.PlanoId.HasValue)
@@ -160,20 +252,44 @@ public class AdminController(NexoDbContext db, IAuditService audit) : Controller
             plano = await db.Planos.FindAsync(r.PlanoId.Value);
             if (plano != null) planoValidoId = plano.Id;
         }
+        plano ??= await db.Planos.Where(p => p.Ativo).OrderBy(p => p.Mensalidade).FirstOrDefaultAsync();
+        planoValidoId = plano?.Id;
+
+        var simInicial = await precificacaoService.SimularAsync(new SimulacaoPrecificacaoRequest(
+            QuantidadeProdutos: 0,
+            QuantidadeFiliais: 1,
+            QuantidadeUsuarios: 1,
+            QuantidadeSincronizadores: 1,
+            VolumeUtilizacao: "Baixo",
+            ModuloContratado: string.IsNullOrWhiteSpace(r.ModuloContratado) ? "Basico" : r.ModuloContratado,
+            Desconto: r.DescontoComercial ?? 0m,
+            AjusteManual: r.AjusteManual ?? 0m
+        ));
 
         var tenant = new Tenant
         {
+            Slug = slugFinal,
             RazaoSocial = r.RazaoSocial.Trim(),
             NomeFantasia = string.IsNullOrWhiteSpace(r.NomeFantasia) ? r.RazaoSocial.Trim() : r.NomeFantasia.Trim(),
             Cnpj = cnpjLimpo,
             Email = string.IsNullOrWhiteSpace(r.Email) ? emailCliente : r.Email.Trim().ToLowerInvariant(),
             Telefone = r.Telefone?.Trim() ?? string.Empty,
             Status = "Ativo",
-            PlanoId = planoValidoId
+            PlanoId = planoValidoId,
+            ModuloContratado = simInicial.ModuloCodigo,
+            VolumeUtilizacao = "Baixo",
+            MensalidadeCalculada = simInicial.MensalidadeCalculada,
+            DescontoComercial = simInicial.Desconto,
+            AjusteManual = simInicial.AjusteManual,
+            MensalidadeFinal = simInicial.MensalidadeFinal,
+            JustificativaPreco = string.IsNullOrWhiteSpace(r.JustificativaPreco) ? "Implantação inicial SaaS" : r.JustificativaPreco.Trim(),
+            DataInicioCobranca = DateTime.UtcNow,
+            ProximoVencimento = DateTime.UtcNow.AddDays(30),
+            SituacaoFinanceira = "Regular"
         };
         db.Tenants.Add(tenant);
 
-        // 3. CriaÃ§Ã£o da Filial Inicial (Matriz)
+        // 3. Criação da Filial Inicial (Matriz)
         var tokenFilial = $"FLK-{Guid.NewGuid():N}"[..24].ToUpperInvariant();
         var filial = new Filial
         {
@@ -188,7 +304,7 @@ public class AdminController(NexoDbContext db, IAuditService audit) : Controller
         };
         db.Filiais.Add(filial);
 
-        // 3.1 ConfiguraÃ§Ã£o Fiscal e ParÃ¢metros PadrÃ£o da Empresa
+        // 3.1 Configuração Fiscal e Parâmetros Padrão da Empresa
         db.ConfiguracoesTenant.Add(new ConfiguracaoTenant
         {
             TenantId = tenant.Id,
@@ -203,20 +319,38 @@ public class AdminController(NexoDbContext db, IAuditService audit) : Controller
             ValidadeCotacaoDias = 3
         });
 
-        // 4. Assinatura do Plano (PerÃ­odo de Teste ou Ativa)
+        // 4. Assinatura Mensal Dinâmica
         if (plano != null)
         {
             db.Assinaturas.Add(new Assinatura
             {
                 TenantId = tenant.Id,
                 PlanoId = plano.Id,
-                Status = "Teste",
+                Status = "Ativa",
                 DataInicio = DateTime.UtcNow,
-                DataFim = DateTime.UtcNow.AddDays(plano.DiasTeste > 0 ? plano.DiasTeste : 14),
-                Valor = plano.Mensalidade,
+                DataFim = DateTime.UtcNow.AddDays(30),
+                DataRenovacao = DateTime.UtcNow.AddDays(30),
+                Valor = tenant.MensalidadeFinal,
                 Ciclo = "Mensal"
             });
         }
+
+        db.HistoricosComerciaisTenant.Add(new HistoricoComercialTenant
+        {
+            TenantId = tenant.Id,
+            TipoAlteracao = "Precificacao",
+            MensalidadeAnterior = 0m,
+            MensalidadeCalculada = tenant.MensalidadeCalculada,
+            DescontoAplicado = tenant.DescontoComercial,
+            AjusteManual = tenant.AjusteManual,
+            MensalidadeFinal = tenant.MensalidadeFinal,
+            ModuloContratado = tenant.ModuloContratado,
+            VolumeUtilizacao = tenant.VolumeUtilizacao,
+            Justificativa = tenant.JustificativaPreco,
+            AlteradoPor = User.Identity?.Name ?? "AdministradorGeral",
+            NotificadoCliente = true,
+            VersaoTabelaPrecos = simInicial.VersaoTabela
+        });
 
         // 5. CriaÃ§Ã£o do Acesso Inicial do Cliente (UsuÃ¡rio)
         var senhaTexto = string.IsNullOrWhiteSpace(r.SenhaInicial)
@@ -325,7 +459,9 @@ public class AdminController(NexoDbContext db, IAuditService audit) : Controller
             AgenteId: agente?.Id,
             AgenteNome: agente?.Nome,
             CodigoAtivacao: rawCode,
-            CodigoAtivacaoExpiraEm: expiraEm
+            CodigoAtivacaoExpiraEm: expiraEm,
+            Slug: tenant.Slug,
+            MensalidadeFinal: tenant.MensalidadeFinal
         ));
     }
 
@@ -517,8 +653,8 @@ public class AdminController(NexoDbContext db, IAuditService audit) : Controller
         var usuario = await db.Usuarios.FindAsync(userId);
         if (usuario == null) return NotFound(new { erro = "UsuÃ¡rio nÃ£o encontrado." });
 
-        if (usuario.Perfil == "PlatformAdmin")
-            return BadRequest(new { erro = "O usuÃ¡rio administrador principal da plataforma nÃ£o pode ser desativado." });
+        if (usuario.Perfil == "PlatformAdmin" || usuario.Perfil == "AdministradorGeral")
+            return BadRequest(new { erro = "O usuário administrador principal da plataforma não pode ser desativado." });
 
         usuario.Ativo = r.Status.Equals("Ativo", StringComparison.OrdinalIgnoreCase);
         audit.Add("StatusUsuarioAlteradoAdmin", "Usuario", usuario.Id.ToString(), new { usuario.Email, usuario.Ativo }, usuario.TenantId);
@@ -861,5 +997,162 @@ public class AdminController(NexoDbContext db, IAuditService audit) : Controller
         audit.Add("PlanoCriado", "Plano", p.Id.ToString(), new { p.Nome, p.Mensalidade });
         await db.SaveChangesAsync();
         return Ok(p);
+    }
+
+    // =========================================================================
+    // SEÇÃO H: Manutenção e Reset Operacional do Ambiente
+    // =========================================================================
+    [HttpPost("system/reset-operational-data")]
+    public async Task<IActionResult> ResetOperationalData([FromQuery] bool force = false)
+    {
+        var relatorio = await resetService.ExecutarResetOperacionalAsync(force);
+        if (!relatorio.Sucesso)
+            return BadRequest(relatorio);
+
+        audit.Add("ResetOperacionalExecutado", "Sistema", "Global", new { relatorio.TotalRegistrosRemovidos, relatorio.UsuarioPreservado });
+        return Ok(relatorio);
+    }
+
+    // =========================================================================
+    // SEÇÃO I: Precificação Dinâmica SaaS (R$ 50,00 a R$ 250,00) & Comercial
+    // =========================================================================
+    [HttpGet("precificacao/config")]
+    public async Task<IActionResult> ObterConfigPrecificacao()
+    {
+        var cfg = await precificacaoService.ObterConfiguracaoAtivaAsync();
+        return Ok(cfg);
+    }
+
+    [HttpGet("precificacao/versoes")]
+    public async Task<IActionResult> ListarVersoesPrecificacao()
+    {
+        var versoes = await precificacaoService.ListarVersoesConfiguracaoAsync();
+        return Ok(versoes);
+    }
+
+    [HttpPut("precificacao/config")]
+    public async Task<IActionResult> AtualizarConfigPrecificacao([FromBody] AtualizarConfiguracaoPrecificacaoRequest req)
+    {
+        try
+        {
+            var usuarioAdmin = User.Identity?.Name ?? "AdministradorGeral";
+            var nova = await precificacaoService.AtualizarConfiguracaoAsync(req, usuarioAdmin);
+            return Ok(nova);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { erro = ex.Message });
+        }
+    }
+
+    [HttpPost("precificacao/simular")]
+    public async Task<IActionResult> SimularPrecificacao([FromBody] SimulacaoPrecificacaoRequest req)
+    {
+        var resultado = await precificacaoService.SimularAsync(req);
+        return Ok(resultado);
+    }
+
+    [HttpGet("precificacao/tenants")]
+    public async Task<IActionResult> ListarPrecificacaoTenants()
+    {
+        var lista = await precificacaoService.ListarPrecificacaoTodosTenantsAsync();
+        return Ok(lista);
+    }
+
+    [HttpGet("precificacao/tenants/{tenantId:guid}")]
+    public async Task<IActionResult> ObterPrecificacaoTenant(Guid tenantId)
+    {
+        try
+        {
+            var det = await precificacaoService.ObterPrecificacaoTenantAsync(tenantId);
+            return Ok(det);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { erro = ex.Message });
+        }
+    }
+
+    [HttpPut("precificacao/tenants/{tenantId:guid}")]
+    public async Task<IActionResult> AplicarPrecificacaoTenant(Guid tenantId, [FromBody] AplicarPrecificacaoTenantRequest req)
+    {
+        try
+        {
+            var usuarioAdmin = User.Identity?.Name ?? "AdministradorGeral";
+            var atualizado = await precificacaoService.AplicarPrecificacaoTenantAsync(tenantId, req, usuarioAdmin);
+            return Ok(atualizado);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { erro = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { erro = ex.Message });
+        }
+    }
+
+    [HttpGet("precificacao/tenants/{tenantId:guid}/historico")]
+    public async Task<IActionResult> ListarHistoricoComercial(Guid tenantId)
+    {
+        var hist = await precificacaoService.ListarHistoricoComercialAsync(tenantId);
+        return Ok(hist);
+    }
+
+    [HttpGet("precificacao/solicitacoes")]
+    public async Task<IActionResult> ListarSolicitacoesAlteracaoPlano()
+    {
+        var solicitacoes = await db.SolicitacoesAlteracaoPlano.IgnoreQueryFilters()
+            .Include(s => s.Tenant)
+            .OrderByDescending(s => s.DataCriacao)
+            .Select(s => new
+            {
+                s.Id,
+                s.TenantId,
+                EmpresaNome = s.Tenant != null ? s.Tenant.NomeFantasia : "",
+                EmpresaSlug = s.Tenant != null ? s.Tenant.Slug : "",
+                s.SolicitadoPorNome,
+                s.ModuloAtual,
+                s.ModuloSolicitado,
+                s.ObservacoesCliente,
+                s.Status,
+                s.RespostaAdmin,
+                s.AnalisadoPor,
+                s.AnalisadoEm,
+                s.DataCriacao
+            })
+            .ToListAsync();
+        return Ok(solicitacoes);
+    }
+
+    [HttpPost("precificacao/solicitacoes/{id:guid}/responder")]
+    public async Task<IActionResult> ResponderSolicitacaoPlano(Guid id, [FromBody] ResponderSolicitacaoPlanoRequest req)
+    {
+        var sol = await db.SolicitacoesAlteracaoPlano.IgnoreQueryFilters().FirstOrDefaultAsync(s => s.Id == id);
+        if (sol == null) return NotFound(new { erro = "Solicitação não encontrada." });
+
+        var usuarioAdmin = User.Identity?.Name ?? "AdministradorGeral";
+        sol.Status = req.Aprovar ? "Aprovada" : "Recusada";
+        sol.RespostaAdmin = req.RespostaAdmin?.Trim() ?? (req.Aprovar ? "Solicitação aprovada pelo Administrador Geral." : "Solicitação recusada.");
+        sol.AnalisadoPor = usuarioAdmin;
+        sol.AnalisadoEm = DateTime.UtcNow;
+
+        if (req.Aprovar)
+        {
+            var t = await db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(x => x.Id == sol.TenantId);
+            if (t != null)
+            {
+                await precificacaoService.AplicarPrecificacaoTenantAsync(t.Id, new AplicarPrecificacaoTenantRequest(
+                    ModuloContratado: sol.ModuloSolicitado,
+                    VolumeUtilizacao: t.VolumeUtilizacao,
+                    Desconto: t.DescontoComercial,
+                    AjusteManual: t.AjusteManual,
+                    Justificativa: $"Aprovação de solicitação do cliente para módulo '{sol.ModuloSolicitado}'. {sol.RespostaAdmin}"
+                ), usuarioAdmin);
+            }
+        }
+
+        await db.SaveChangesAsync();
+        return Ok(new { mensagem = $"Solicitação {sol.Status.ToLower()} com sucesso.", status = sol.Status });
     }
 }

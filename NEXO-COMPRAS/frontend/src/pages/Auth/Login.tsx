@@ -1,15 +1,66 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { ShieldCheck, Building2, Lock, Mail, ArrowRight } from 'lucide-react';
+import { api } from '../../services/api';
+import { Lock, Mail, ArrowRight, Building2, AlertTriangle, ShieldAlert } from 'lucide-react';
+
+interface ResolvedCompanyInfo {
+  id: string;
+  slug: string;
+  razaoSocial: string;
+  nomeFantasia: string;
+  status: string;
+  logoUrl?: string;
+}
 
 export const Login: React.FC = () => {
+  const { slug } = useParams<{ slug?: string }>();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const [companyInfo, setCompanyInfo] = useState<ResolvedCompanyInfo | null>(null);
+  const [resolvingSlug, setResolvingSlug] = useState(false);
+  const [slugError, setSlugError] = useState<{ codigo?: string; mensagem: string; nomeFantasia?: string } | null>(null);
+
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!slug) {
+      setCompanyInfo(null);
+      setSlugError(null);
+      return;
+    }
+
+    let active = true;
+    setResolvingSlug(true);
+    setSlugError(null);
+
+    api
+      .get<ResolvedCompanyInfo>(`/tenants/resolve/${slug}`)
+      .then((res) => {
+        if (!active) return;
+        setCompanyInfo(res);
+      })
+      .catch((err: any) => {
+        if (!active) return;
+        setCompanyInfo(null);
+        setSlugError({
+          codigo: err.codigo || (err.status === 404 ? 'SLUG_INEXISTENTE' : 'ERRO'),
+          mensagem: err.message || 'Empresa não encontrada.',
+          nomeFantasia: err.data?.nomeFantasia,
+        });
+      })
+      .finally(() => {
+        if (active) setResolvingSlug(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [slug]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,11 +68,16 @@ export const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const res = await login(email, senha);
-      if (res.user.perfil === 'PlatformAdmin') {
+      const res = await login(email, senha, slug);
+      if (res.user.perfil === 'PlatformAdmin' || res.user.perfil === 'AdministradorGeral') {
         navigate('/admin');
       } else {
-        navigate('/dashboard');
+        const targetSlug = res.tenant?.slug || slug;
+        if (targetSlug) {
+          navigate(`/${targetSlug}/dashboard`);
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err: any) {
       setErro(err.message || 'Erro ao efetuar login.');
@@ -30,10 +86,58 @@ export const Login: React.FC = () => {
     }
   };
 
-  const setCredentials = (e: string, s: string) => {
-    setEmail(e);
-    setSenha(s);
-  };
+  if (resolvingSlug) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-page)' }}>
+        <div className="card" style={{ maxWidth: '420px', textAlign: 'center', padding: '32px' }}>
+          Carregando ambiente corporativo <strong>/{slug}</strong>...
+        </div>
+      </div>
+    );
+  }
+
+  if (slug && slugError) {
+    const isSuspensa = slugError.codigo === 'EMPRESA_SUSPENSA' || slugError.codigo === 'EMPRESA_INATIVA';
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg-page)', padding: '20px' }}>
+        <div className="card" style={{ maxWidth: '460px', width: '100%', textAlign: 'center', padding: '32px 24px' }}>
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '14px',
+            backgroundColor: isSuspensa ? '#FEF3C7' : '#FEE2E2',
+            color: isSuspensa ? '#D97706' : '#DC2626',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '16px'
+          }}>
+            {isSuspensa ? <ShieldAlert size={28} /> : <AlertTriangle size={28} />}
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px' }}>
+            {isSuspensa
+              ? `Acesso Temporariamente Suspenso`
+              : `Endereço Não Encontrado (404)`}
+          </h2>
+          {slugError.nomeFantasia && (
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--blue-primary)', marginBottom: '8px' }}>
+              {slugError.nomeFantasia} (/{slug})
+            </div>
+          )}
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: '22px' }}>
+            {slugError.mensagem}
+          </p>
+          <button
+            onClick={() => navigate('/login')}
+            className="btn btn-primary"
+            style={{ width: '100%', padding: '10px', fontSize: '14px' }}
+          >
+            Ir para o Login Geral
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -64,20 +168,43 @@ export const Login: React.FC = () => {
             N
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)' }}>
-            Nexo Compras
+            {companyInfo ? companyInfo.nomeFantasia : 'Nexo Compras'}
           </h1>
           <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Plataforma SaaS de Gestão Inteligente de Compras
+            {companyInfo
+              ? `Ambiente Corporativo Exclusivo • nexoscompras.com.br/${companyInfo.slug}`
+              : 'Plataforma SaaS de Gestão Inteligente de Compras'}
           </p>
         </div>
 
         {/* CARD DE LOGIN */}
         <div className="card">
+          {companyInfo && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '10px 12px',
+              backgroundColor: '#EFF6FF',
+              border: '1px solid #BFDBFE',
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: '16px',
+              fontSize: '13px',
+              color: '#1E40AF'
+            }}>
+              <Building2 size={17} />
+              <div>
+                <div style={{ fontWeight: 700 }}>{companyInfo.razaoSocial}</div>
+                <div style={{ fontSize: '11.5px', opacity: 0.85 }}>Rota autenticada: /{companyInfo.slug}</div>
+              </div>
+            </div>
+          )}
+
           <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '6px' }}>
             Entrar na plataforma
           </h2>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-            Acesse com seu e-mail corporativo ou credencial de administrador
+            Acesse com suas credenciais autorizadas
           </p>
 
           {erro && (
@@ -135,24 +262,6 @@ export const Login: React.FC = () => {
               <ArrowRight size={16} />
             </button>
           </form>
-
-          {/* ACESSO ADMINISTRATIVO DA PLATAFORMA */}
-          <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-light)' }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-              Acesso Administrativo da Plataforma
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setCredentials('admin@nexocompras.com.br', 'Admin@Nexo2026!')}
-                className="btn btn-secondary"
-                style={{ flex: 1, fontSize: '12px', padding: '6px 8px' }}
-              >
-                <ShieldCheck size={14} style={{ color: 'var(--yellow-text)' }} />
-                Administrador Geral (Nexo Admin)
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* ONBOARDING */}
@@ -166,4 +275,3 @@ export const Login: React.FC = () => {
     </div>
   );
 };
-

@@ -11,17 +11,6 @@ using Nexo.Agent.Core.State;
 
 namespace Nexo.Agent.Core.Sync;
 
-public class SyncStateFile
-{
-    public DateTime? UltimoEstoque { get; set; }
-    public DateTime? UltimosProdutos { get; set; }
-    public DateTime? UltimosFornecedores { get; set; }
-    public DateTime? UltimosPrecos { get; set; }
-    public Dictionary<string, string> HashesEstoque { get; set; } = new();
-    public Dictionary<string, string> HashesProdutos { get; set; } = new();
-    public Dictionary<string, string> HashesFornecedores { get; set; } = new();
-}
-
 public record SyncStepResult(string Etapa, bool Sucesso, int Itens, string? Erro = null);
 public record SyncCycleResult(bool Sucesso, bool Parcial, string Mensagem, List<SyncStepResult> Etapas);
 
@@ -31,8 +20,8 @@ public class IncrementalSyncEngine
     private readonly HttpClient _http;
     private readonly PersistentTaskQueue _queue;
     private readonly AgentStateManager _state;
+    private readonly SQLiteSyncRepository _sqliteRepo;
     private readonly ILogger<IncrementalSyncEngine>? _logger;
-    private readonly string _syncStatePath;
     private readonly Guid _tenantId;
     private readonly Guid? _filialId;
     private readonly Guid _agentId;
@@ -43,29 +32,34 @@ public class IncrementalSyncEngine
     public TimeSpan IntervaloPrecos { get; set; } = TimeSpan.FromMinutes(15);
     public TimeSpan IntervaloHeartbeat { get; set; } = TimeSpan.FromMinutes(1);
 
-    private SyncStateFile _syncState = new();
-    private readonly object _stateLock = new();
-
     public event Action<string, string>? OnLog; // level, message
+
+    public SQLiteSyncRepository SqliteRepo => _sqliteRepo;
+    public Guid TenantId => _tenantId;
+    public Guid? FilialId => _filialId;
+    public Guid AgentId => _agentId;
 
     public IncrementalSyncEngine(
         IDatabaseConnector connector,
         IConfiguration config,
         PersistentTaskQueue queue,
         AgentStateManager state,
-        ILogger<IncrementalSyncEngine>? logger = null)
+        ILogger<IncrementalSyncEngine>? logger = null,
+        SQLiteSyncRepository? sqliteRepo = null,
+        HttpClient? httpClient = null)
     {
         _connector = connector;
         _queue = queue;
         _state = state;
         _logger = logger;
+        _sqliteRepo = sqliteRepo ?? new SQLiteSyncRepository();
 
-        var baseUrl = config["NexoApi:BaseUrl"] ?? "http://localhost:5000";
+        var baseUrl = config["NexoApi:BaseUrl"] ?? "https://nexoscompras.com.br";
         var credsManager = new Security.AgentCredentialsManager();
         var stored = credsManager.LoadCredentials();
         var agentKey = stored != null && !string.IsNullOrWhiteSpace(stored.AgentCredential)
             ? stored.AgentCredential
-            : (config["NexoApi:AgentKey"] ?? "agt_demo_mercadinho_central_123456");
+            : (config["NexoApi:AgentKey"] ?? string.Empty);
 
         if (stored != null)
         {
@@ -78,20 +72,32 @@ public class IncrementalSyncEngine
                 stored.RazaoSocial,
                 stored.NomeFantasia,
                 stored.Cnpj,
-                "Ativo"
+                "Ativo",
+                stored.FilialId?.ToString(),
+                stored.FilialNome,
+                stored.FilialCodigo
             );
+        }
+        else if (Guid.TryParse(config["TenantId"], out var cfgTenant))
+        {
+            _tenantId = cfgTenant;
+            if (Guid.TryParse(config["FilialId"], out var cfgFilial))
+                _filialId = cfgFilial;
         }
 
         var timeout = int.TryParse(config["NexoApi:TimeoutSeconds"], out var t) ? t : 20;
 
-        _http = new HttpClient { BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/") };
-        _http.DefaultRequestHeaders.Add("X-Agent-Key", agentKey);
-        _http.Timeout = TimeSpan.FromSeconds(timeout);
-
-        var dataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data");
-        if (!Directory.Exists(dataDir)) Directory.CreateDirectory(dataDir);
-        var tenantSuffix = (_tenantId != Guid.Empty) ? $"_{_tenantId:N}" : "";
-        _syncStatePath = Path.Combine(dataDir, $"sync_state{tenantSuffix}.json");
+        if (httpClient != null)
+        {
+            _http = httpClient;
+        }
+        else
+        {
+            _http = new HttpClient { BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/") };
+            if (!string.IsNullOrWhiteSpace(agentKey))
+                _http.DefaultRequestHeaders.Add("X-Agent-Key", agentKey);
+            _http.Timeout = TimeSpan.FromSeconds(timeout);
+        }
 
         if (_tenantId != Guid.Empty)
         {
@@ -102,7 +108,7 @@ public class IncrementalSyncEngine
             }
         }
 
-        LoadSyncState();
+        AtualizarSituacaoCargaInicialNoEstado();
     }
 
     private void Log(string level, string msg)
@@ -110,6 +116,20 @@ public class IncrementalSyncEngine
         _logger?.LogInformation("[{Level}] {Msg}", level, msg);
         _state.AddLog(level, msg);
         OnLog?.Invoke(level, msg);
+    }
+
+    public bool IsInitialSyncCompleted(string entityType = "Produtos") =>
+        _sqliteRepo.IsInitialSyncCompleted(_tenantId, _filialId, entityType);
+
+    private void AtualizarSituacaoCargaInicialNoEstado()
+    {
+        var prodInit = _sqliteRepo.IsInitialSyncCompleted(_tenantId, _filialId, "Produtos");
+        var summary = _sqliteRepo.GetSyncSummary(_tenantId, _filialId, "Produtos");
+        _state.CurrentState.CargaInicialConcluida = prodInit;
+        _state.CurrentState.SituacaoCargaInicial = prodInit ? "Carga inicial concluída" : "Pendente de carga inicial";
+        _state.CurrentState.UltimosProdutosEnviados = summary.LastCount;
+        _state.CurrentState.UltimosProdutosNovos = summary.NewCount;
+        _state.CurrentState.UltimosProdutosModificados = summary.ModCount;
     }
 
     public async Task<bool> TestarConexaoBancoAsync(CancellationToken ct = default)
@@ -158,10 +178,6 @@ public class IncrementalSyncEngine
                 var tabEst = mapping.Estoque.HasDedicatedTable ? mapping.Estoque.TableName : mapping.Produtos.TableName;
                 Log("SUCCESS", $"Mapeamento de estoque concluído: tabela '{tabEst}' (campo: '{mapping.Estoque.EstoqueAtualCol}').");
             }
-            else
-            {
-                Log("WARN", $"Estrutura de estoque pendente de validação: {mapping.Estoque.MotivoInvalido}");
-            }
         }
         catch (Exception ex)
         {
@@ -208,7 +224,7 @@ public class IncrementalSyncEngine
         {
             var body = new
             {
-                Versao = "2.4.0",
+                Versao = "2.6.0",
                 NomeMaquina = Environment.MachineName,
                 Ambiente = new
                 {
@@ -247,7 +263,6 @@ public class IncrementalSyncEngine
                     }
                 }
 
-                // Se houver itens na fila offline pendente, tenta descarregar agora que estamos online
                 await DescarregarFilaOfflineAsync(ct);
                 return true;
             }
@@ -264,27 +279,199 @@ public class IncrementalSyncEngine
         }
     }
 
+    #region Sincronização Inteligente de Produtos
+
+    public async Task<SyncStepResult> SincronizarProdutosIncrementalAsync(CancellationToken ct = default)
+    {
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var isInitial = !_sqliteRepo.IsInitialSyncCompleted(_tenantId, _filialId, "Produtos");
+
+            if (isInitial)
+            {
+                Log("INFO", "Iniciando CARGA INICIAL completa de produtos do ERP...");
+                _state.UpdateStatus("Carga Inicial");
+            }
+            else
+            {
+                Log("INFO", "Verificando alterações incrementais nos produtos do ERP...");
+                _state.UpdateStatus("Sincronizando");
+            }
+
+            // Lê todos os produtos do ERP
+            var produtos = (await _connector.GetProductsAsync(null, ct))
+                .Where(p => !string.IsNullOrWhiteSpace(p.CodigoErp) && !string.IsNullOrWhiteSpace(p.Descricao))
+                .ToList();
+
+            if (produtos.Count == 0)
+            {
+                Log("INFO", "Nenhum produto válido encontrado no banco ERP.");
+                _state.RegisterSyncDone("Produtos", 0, sw.ElapsedMilliseconds, "Sucesso", "0 produtos encontrados", DateTime.UtcNow.Add(IntervaloProdutos));
+                _state.UpdateStatus("Online");
+                return new SyncStepResult("Produtos", true, 0);
+            }
+
+            // Se for a primeira sincronização: Carga Inicial Completa
+            if (isInitial)
+            {
+                Log("INFO", $"Carga inicial: {produtos.Count} produtos identificados no ERP para importação.");
+                const int chunkSize = 1000;
+                var totalEnviados = 0;
+                var sucessoGeral = true;
+
+                for (int i = 0; i < produtos.Count; i += chunkSize)
+                {
+                    var chunk = produtos.Skip(i).Take(chunkSize).ToList();
+                    var batch = new SyncBatch<ErpProdutoDto>(Guid.NewGuid(), DateTime.UtcNow, chunk, IsDelta: false, TenantId: _tenantId, BranchId: _filialId);
+
+                    var ok = await TentarEnviarAoSaasAsync("api/agent/v1/sync/produtos", "produtos", batch, ct);
+                    if (ok)
+                    {
+                        // REGRA CRÍTICA: confirma no SQLite local somente após sucesso confirmado da API
+                        _sqliteRepo.ConfirmSyncedFingerprints(
+                            _tenantId, _filialId, "Produtos",
+                            chunk.Select(p => (p.CodigoErp, ComputeProdutoFingerprint(p)))
+                        );
+                        totalEnviados += chunk.Count;
+                    }
+                    else
+                    {
+                        sucessoGeral = false;
+                        _queue.Enqueue("produtos", batch, tenantId: _tenantId, branchId: _filialId, agentId: _agentId);
+                    }
+                }
+                sw.Stop();
+
+                if (sucessoGeral)
+                {
+                    _sqliteRepo.MarkInitialSyncCompleted(_tenantId, _filialId, "Produtos", totalEnviados, _connector.ConnectorName);
+                    AtualizarSituacaoCargaInicialNoEstado();
+
+                    Log("SUCCESS", $"Carga inicial concluída com sucesso: {totalEnviados} produtos sincronizados e persistidos no SQLite.");
+                    _state.RegisterSyncDone("Produtos", totalEnviados, sw.ElapsedMilliseconds, "Sucesso", $"Carga inicial: {totalEnviados} produtos", DateTime.UtcNow.Add(IntervaloProdutos));
+                    _state.UpdateStatus("Online");
+                    return new SyncStepResult("Produtos", true, totalEnviados);
+                }
+                else
+                {
+                    _state.UpdateFilaOffline(_queue.GetPendingCount());
+                    Log("WARN", $"Carga inicial parcial: {totalEnviados} enviados à API, restante salvo na fila offline.");
+                    _state.RegisterSyncDone("Produtos", totalEnviados, sw.ElapsedMilliseconds, "Offline (Enfileirado)", "Salvo na fila local", DateTime.UtcNow.Add(IntervaloProdutos));
+                    _state.UpdateStatus("Online");
+                    return new SyncStepResult("Produtos", totalEnviados > 0, totalEnviados, "Envio parcial para a API");
+                }
+            }
+            else
+            {
+                // SINCRONIZAÇÕES SUBSEQUENTES: Detecção Incremental Estrita por Fingerprint SHA-256
+                var storedFingerprints = _sqliteRepo.GetStoredFingerprints(_tenantId, _filialId, "Produtos");
+
+                var novos = new List<ErpProdutoDto>();
+                var modificados = new List<ErpProdutoDto>();
+
+                foreach (var p in produtos)
+                {
+                    var currentHash = ComputeProdutoFingerprint(p);
+
+                    if (!storedFingerprints.TryGetValue(p.CodigoErp, out var oldHash))
+                    {
+                        novos.Add(p);
+                    }
+                    else if (oldHash != currentHash)
+                    {
+                        modificados.Add(p);
+                    }
+                }
+
+                var alterados = novos.Concat(modificados).ToList();
+
+                if (alterados.Count == 0)
+                {
+                    Log("INFO", "Catálogo de produtos verificado: Nenhuma alteração pendente (0 novos, 0 modificados). Nenhum produto reenviado.");
+                    _sqliteRepo.UpdateSyncStats(_tenantId, _filialId, "Produtos", 0, 0, 0);
+                    AtualizarSituacaoCargaInicialNoEstado();
+
+                    _state.RegisterSyncDone("Produtos", 0, sw.ElapsedMilliseconds, "Sucesso", "Nenhuma alteração detectada (0 enviados)", DateTime.UtcNow.Add(IntervaloProdutos));
+                    _state.UpdateStatus("Online");
+                    return new SyncStepResult("Produtos", true, 0);
+                }
+
+                Log("INFO", $"Detectados {novos.Count} produto(s) novo(s) e {modificados.Count} modificado(s). Enviando {alterados.Count} para a nuvem...");
+
+                const int chunkSize = 1000;
+                var totalEnviados = 0;
+                var sucessoGeral = true;
+
+                for (int i = 0; i < alterados.Count; i += chunkSize)
+                {
+                    var chunk = alterados.Skip(i).Take(chunkSize).ToList();
+                    var batch = new SyncBatch<ErpProdutoDto>(Guid.NewGuid(), DateTime.UtcNow, chunk, IsDelta: true, TenantId: _tenantId, BranchId: _filialId);
+
+                    var ok = await TentarEnviarAoSaasAsync("api/agent/v1/sync/produtos", "produtos", batch, ct);
+                    if (ok)
+                    {
+                        // REGRA CRÍTICA: Atualiza o fingerprint local somente após a API confirmar
+                        _sqliteRepo.ConfirmSyncedFingerprints(
+                            _tenantId, _filialId, "Produtos",
+                            chunk.Select(p => (p.CodigoErp, ComputeProdutoFingerprint(p)))
+                        );
+                        totalEnviados += chunk.Count;
+                    }
+                    else
+                    {
+                        sucessoGeral = false;
+                        _queue.Enqueue("produtos", batch, tenantId: _tenantId, branchId: _filialId, agentId: _agentId);
+                    }
+                }
+                sw.Stop();
+
+                _sqliteRepo.UpdateSyncStats(_tenantId, _filialId, "Produtos", totalEnviados, novos.Count, modificados.Count);
+                AtualizarSituacaoCargaInicialNoEstado();
+
+                if (sucessoGeral)
+                {
+                    Log("SUCCESS", $"Sincronização incremental concluída: {totalEnviados} produto(s) enviado(s) ({novos.Count} novos, {modificados.Count} modificados).");
+                    _state.RegisterSyncDone("Produtos", totalEnviados, sw.ElapsedMilliseconds, "Sucesso", $"{totalEnviados} enviados ({novos.Count} novos, {modificados.Count} modificados)", DateTime.UtcNow.Add(IntervaloProdutos));
+                    _state.UpdateStatus("Online");
+                    return new SyncStepResult("Produtos", true, totalEnviados);
+                }
+                else
+                {
+                    _state.UpdateFilaOffline(_queue.GetPendingCount());
+                    Log("WARN", $"Envio parcial incremental: {totalEnviados} enviados, restante enfileirado offline.");
+                    _state.RegisterSyncDone("Produtos", totalEnviados, sw.ElapsedMilliseconds, "Offline (Enfileirado)", "Salvo na fila local", DateTime.UtcNow.Add(IntervaloProdutos));
+                    _state.UpdateStatus("Online");
+                    return new SyncStepResult("Produtos", totalEnviados > 0, totalEnviados, "Envio parcial incremental");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("ERROR", "Erro no ciclo de produtos: " + ex.Message);
+            _state.RegisterSyncDone("Produtos", 0, sw.ElapsedMilliseconds, "Falha", ex.Message, DateTime.UtcNow.Add(IntervaloProdutos));
+            _state.UpdateStatus("Online");
+            return new SyncStepResult("Produtos", false, 0, ex.Message);
+        }
+    }
+
+    #endregion
+
+    #region Sincronização Inteligente de Estoque
+
     public async Task<SyncStepResult> SincronizarEstoqueIncrementalAsync(CancellationToken ct = default)
     {
         var sw = Stopwatch.StartNew();
         try
         {
-            Log("INFO", "Iniciando verificação de estoque...");
+            var isInitial = !_sqliteRepo.IsInitialSyncCompleted(_tenantId, _filialId, "Estoque");
 
-            if (_connector.CurrentMapping != null && !_connector.CurrentMapping.Estoque.Valido)
-            {
-                Log("ERROR", "Falha na identificação do campo de quantidade.");
-                Log("INFO", "Entidade: Estoque.");
-                Log("INFO", $"Banco: {_connector.DatabaseType}.");
-                Log("INFO", $"Tabela analisada: {_connector.CurrentMapping.Estoque.TableName}.");
-                Log("INFO", "Campo esperado: quantidade_estoque.");
-                Log("ERROR", $"Nenhum campo compatível foi identificado: {_connector.CurrentMapping.Estoque.MotivoInvalido}");
+            Log("INFO", isInitial ? "Iniciando carga inicial de posições de estoque..." : "Verificando alterações de estoque...");
 
-                _state.RegisterSyncDone("Estoque", 0, sw.ElapsedMilliseconds, "Falha", _connector.CurrentMapping.Estoque.MotivoInvalido ?? "Campo não identificado", DateTime.UtcNow.Add(IntervaloEstoque));
-                return new SyncStepResult("Estoque", false, 0, _connector.CurrentMapping.Estoque.MotivoInvalido);
-            }
+            var estoques = (await _connector.GetStockAsync(ct))
+                .Where(e => !string.IsNullOrWhiteSpace(e.CodigoErp))
+                .ToList();
 
-            var estoques = (await _connector.GetStockAsync(ct)).ToList();
             if (estoques.Count == 0)
             {
                 Log("INFO", "Nenhum registro de estoque retornado pelo banco ERP.");
@@ -292,67 +479,71 @@ public class IncrementalSyncEngine
                 return new SyncStepResult("Estoque", true, 0);
             }
 
-            // Filtra somente registros alterados usando checksum
+            var storedFingerprints = _sqliteRepo.GetStoredFingerprints(_tenantId, _filialId, "Estoque");
             var alterados = new List<ErpEstoqueDto>();
-            lock (_stateLock)
+
+            foreach (var item in estoques)
             {
-                foreach (var item in estoques)
+                var hash = ComputeEstoqueFingerprint(item);
+                if (!storedFingerprints.TryGetValue(item.CodigoErp, out var oldHash) || oldHash != hash)
                 {
-                    var hash = ComputeEstoqueHash(item);
-                    if (!_syncState.HashesEstoque.TryGetValue(item.CodigoErp, out var oldHash) || oldHash != hash)
-                    {
-                        alterados.Add(item);
-                        _syncState.HashesEstoque[item.CodigoErp] = hash;
-                    }
+                    alterados.Add(item);
                 }
             }
 
             if (alterados.Count == 0)
             {
-                Log("INFO", "Estoque sem alterações detectadas desde a última sincronização.");
+                Log("INFO", "Estoque verificado: Nenhuma alteração detectada (0 posições enviadas).");
+                _sqliteRepo.UpdateSyncStats(_tenantId, _filialId, "Estoque", 0, 0, 0);
                 _state.RegisterSyncDone("Estoque", 0, sw.ElapsedMilliseconds, "Sucesso", "Nenhuma alteração detectada", DateTime.UtcNow.Add(IntervaloEstoque));
                 return new SyncStepResult("Estoque", true, 0);
             }
 
             Log("INFO", $"{alterados.Count} posições de estoque alteradas detectadas. Enviando...");
-            const int chunkSizeEstoque = 1000;
-            var totalEnviadosEstoque = 0;
-            var sucessoGeralEstoque = true;
+            const int chunkSize = 1000;
+            var totalEnviados = 0;
+            var sucessoGeral = true;
 
-            for (int i = 0; i < alterados.Count; i += chunkSizeEstoque)
+            for (int i = 0; i < alterados.Count; i += chunkSize)
             {
-                var chunk = alterados.Skip(i).Take(chunkSizeEstoque).ToList();
-                var batch = new SyncBatch<ErpEstoqueDto>(Guid.NewGuid(), DateTime.UtcNow, chunk, IsDelta: true, TenantId: _tenantId, BranchId: _filialId);
+                var chunk = alterados.Skip(i).Take(chunkSize).ToList();
+                var batch = new SyncBatch<ErpEstoqueDto>(Guid.NewGuid(), DateTime.UtcNow, chunk, IsDelta: !isInitial, TenantId: _tenantId, BranchId: _filialId);
+
                 var ok = await TentarEnviarAoSaasAsync("api/agent/v1/sync/estoque", "estoque", batch, ct);
                 if (ok)
                 {
-                    totalEnviadosEstoque += chunk.Count;
+                    _sqliteRepo.ConfirmSyncedFingerprints(
+                        _tenantId, _filialId, "Estoque",
+                        chunk.Select(e => (e.CodigoErp, ComputeEstoqueFingerprint(e)))
+                    );
+                    totalEnviados += chunk.Count;
                 }
                 else
                 {
-                    sucessoGeralEstoque = false;
+                    sucessoGeral = false;
                     _queue.Enqueue("estoque", batch, tenantId: _tenantId, branchId: _filialId, agentId: _agentId);
                 }
             }
             sw.Stop();
 
-            if (sucessoGeralEstoque)
+            _sqliteRepo.UpdateSyncStats(_tenantId, _filialId, "Estoque", totalEnviados, alterados.Count, 0);
+            if (isInitial && sucessoGeral)
             {
-                lock (_stateLock)
-                {
-                    _syncState.UltimoEstoque = DateTime.UtcNow;
-                    SaveSyncState();
-                }
-                Log("SUCCESS", $"{alterados.Count} posições de estoque sincronizadas com o Nexo SaaS.");
+                _sqliteRepo.MarkInitialSyncCompleted(_tenantId, _filialId, "Estoque", totalEnviados, _connector.ConnectorName);
+            }
+
+            if (sucessoGeral)
+            {
+                Log("SUCCESS", $"{alterados.Count} posições de estoque sincronizadas com o Nexo Compras.");
                 _state.RegisterSyncDone("Estoque", alterados.Count, sw.ElapsedMilliseconds, "Sucesso", $"{alterados.Count} posições atualizadas", DateTime.UtcNow.Add(IntervaloEstoque));
                 return new SyncStepResult("Estoque", true, alterados.Count);
             }
             else
             {
                 _state.UpdateFilaOffline(_queue.GetPendingCount());
-                Log("WARN", $"Envio parcial de estoque: {totalEnviadosEstoque} enviados, restante enfileirado para envio offline.");
-                _state.RegisterSyncDone("Estoque", totalEnviadosEstoque, sw.ElapsedMilliseconds, "Offline (Enfileirado)", "Salvo na fila local", DateTime.UtcNow.Add(IntervaloEstoque));
-                return new SyncStepResult("Estoque", totalEnviadosEstoque > 0, totalEnviadosEstoque, "Envio parcial para o SaaS");
+                Log("WARN", $"Envio parcial de estoque: {totalEnviados} enviados, restante enfileirado offline.");
+                _state.RegisterSyncDone("Estoque", totalEnviados, sw.ElapsedMilliseconds, "Offline (Enfileirado)", "Salvo na fila local", DateTime.UtcNow.Add(IntervaloEstoque));
+                return new SyncStepResult("Estoque", totalEnviados > 0, totalEnviados, "Envio parcial de estoque");
             }
         }
         catch (Exception ex)
@@ -363,139 +554,70 @@ public class IncrementalSyncEngine
         }
     }
 
-    public async Task<SyncStepResult> SincronizarProdutosIncrementalAsync(CancellationToken ct = default)
-    {
-        var sw = Stopwatch.StartNew();
-        try
-        {
-            Log("INFO", "Iniciando leitura de produtos do ERP...");
-            var produtos = (await _connector.GetProductsAsync(_syncState.UltimosProdutos, ct)).ToList();
-            if (produtos.Count == 0)
-            {
-                Log("INFO", "Nenhum produto novo ou alterado no ERP.");
-                _state.RegisterSyncDone("Produtos", 0, sw.ElapsedMilliseconds, "Sucesso", "0 produtos", DateTime.UtcNow.Add(IntervaloProdutos));
-                return new SyncStepResult("Produtos", true, 0);
-            }
+    #endregion
 
-            var alterados = new List<ErpProdutoDto>();
-            lock (_stateLock)
-            {
-                foreach (var p in produtos)
-                {
-                    var hash = ComputeProdutoHash(p);
-                    if (!_syncState.HashesProdutos.TryGetValue(p.CodigoErp, out var oldHash) || oldHash != hash)
-                    {
-                        alterados.Add(p);
-                        _syncState.HashesProdutos[p.CodigoErp] = hash;
-                    }
-                }
-            }
-
-            if (alterados.Count == 0)
-            {
-                Log("INFO", "Catálogo de produtos sem alterações.");
-                _state.RegisterSyncDone("Produtos", 0, sw.ElapsedMilliseconds, "Sucesso", "Nenhuma alteração detectada", DateTime.UtcNow.Add(IntervaloProdutos));
-                return new SyncStepResult("Produtos", true, 0);
-            }
-
-            Log("INFO", $"{alterados.Count} produtos novos ou alterados detectados. Enviando...");
-            const int chunkSizeProdutos = 1000;
-            var totalEnviadosProdutos = 0;
-            var sucessoGeralProdutos = true;
-
-            for (int i = 0; i < alterados.Count; i += chunkSizeProdutos)
-            {
-                var chunk = alterados.Skip(i).Take(chunkSizeProdutos).ToList();
-                var batch = new SyncBatch<ErpProdutoDto>(Guid.NewGuid(), DateTime.UtcNow, chunk, IsDelta: true, TenantId: _tenantId, BranchId: _filialId);
-                var ok = await TentarEnviarAoSaasAsync("api/agent/v1/sync/produtos", "produtos", batch, ct);
-                if (ok)
-                {
-                    totalEnviadosProdutos += chunk.Count;
-                }
-                else
-                {
-                    sucessoGeralProdutos = false;
-                    _queue.Enqueue("produtos", batch, tenantId: _tenantId, branchId: _filialId, agentId: _agentId);
-                }
-            }
-            sw.Stop();
-
-            if (sucessoGeralProdutos)
-            {
-                lock (_stateLock)
-                {
-                    _syncState.UltimosProdutos = DateTime.UtcNow;
-                    SaveSyncState();
-                }
-                Log("SUCCESS", $"{alterados.Count} produtos sincronizados com o Nexo SaaS.");
-                _state.RegisterSyncDone("Produtos", alterados.Count, sw.ElapsedMilliseconds, "Sucesso", $"{alterados.Count} produtos sincronizados", DateTime.UtcNow.Add(IntervaloProdutos));
-                return new SyncStepResult("Produtos", true, alterados.Count);
-            }
-            else
-            {
-                _state.UpdateFilaOffline(_queue.GetPendingCount());
-                Log("WARN", $"Envio parcial de produtos: {totalEnviadosProdutos} enviados, restante enfileirado para envio offline.");
-                _state.RegisterSyncDone("Produtos", totalEnviadosProdutos, sw.ElapsedMilliseconds, "Offline (Enfileirado)", "Salvo na fila local", DateTime.UtcNow.Add(IntervaloProdutos));
-                return new SyncStepResult("Produtos", totalEnviadosProdutos > 0, totalEnviadosProdutos, "Envio parcial para o SaaS");
-            }
-        }
-        catch (Exception ex)
-        {
-            Log("ERROR", "Erro no ciclo de produtos: " + ex.Message);
-            _state.RegisterSyncDone("Produtos", 0, sw.ElapsedMilliseconds, "Falha", ex.Message, DateTime.UtcNow.Add(IntervaloProdutos));
-            return new SyncStepResult("Produtos", false, 0, ex.Message);
-        }
-    }
+    #region Sincronização Inteligente de Fornecedores
 
     public async Task<SyncStepResult> SincronizarFornecedoresIncrementalAsync(CancellationToken ct = default)
     {
         var sw = Stopwatch.StartNew();
         try
         {
-            Log("INFO", "Iniciando leitura de fornecedores do ERP...");
-            var fornecedores = (await _connector.GetSuppliersAsync(_syncState.UltimosFornecedores, ct)).ToList();
+            var isInitial = !_sqliteRepo.IsInitialSyncCompleted(_tenantId, _filialId, "Fornecedores");
+
+            Log("INFO", isInitial ? "Iniciando carga inicial de fornecedores do ERP..." : "Verificando alterações de fornecedores...");
+
+            var fornecedores = (await _connector.GetSuppliersAsync(null, ct))
+                .Where(f => !string.IsNullOrWhiteSpace(f.CodigoErp) && !string.IsNullOrWhiteSpace(f.RazaoSocial))
+                .ToList();
+
             if (fornecedores.Count == 0)
             {
-                Log("INFO", "Nenhum fornecedor novo ou alterado no ERP.");
+                Log("INFO", "Nenhum fornecedor retornado pelo banco ERP.");
                 _state.RegisterSyncDone("Fornecedores", 0, sw.ElapsedMilliseconds, "Sucesso", "0 fornecedores", DateTime.UtcNow.Add(IntervaloFornecedores));
                 return new SyncStepResult("Fornecedores", true, 0);
             }
 
+            var storedFingerprints = _sqliteRepo.GetStoredFingerprints(_tenantId, _filialId, "Fornecedores");
             var alterados = new List<ErpFornecedorDto>();
-            lock (_stateLock)
+
+            foreach (var f in fornecedores)
             {
-                foreach (var f in fornecedores)
+                var hash = ComputeFornecedorFingerprint(f);
+                if (!storedFingerprints.TryGetValue(f.CodigoErp, out var oldHash) || oldHash != hash)
                 {
-                    var hash = ComputeFornecedorHash(f);
-                    if (!_syncState.HashesFornecedores.TryGetValue(f.CodigoErp, out var oldHash) || oldHash != hash)
-                    {
-                        alterados.Add(f);
-                        _syncState.HashesFornecedores[f.CodigoErp] = hash;
-                    }
+                    alterados.Add(f);
                 }
             }
 
             if (alterados.Count == 0)
             {
-                Log("INFO", "Cadastro de fornecedores sem alterações.");
+                Log("INFO", "Cadastro de fornecedores verificado: Nenhuma alteração pendente (0 enviados).");
+                _sqliteRepo.UpdateSyncStats(_tenantId, _filialId, "Fornecedores", 0, 0, 0);
                 _state.RegisterSyncDone("Fornecedores", 0, sw.ElapsedMilliseconds, "Sucesso", "Nenhuma alteração detectada", DateTime.UtcNow.Add(IntervaloFornecedores));
                 return new SyncStepResult("Fornecedores", true, 0);
             }
 
             Log("INFO", $"{alterados.Count} fornecedores novos ou alterados detectados. Enviando...");
-            var batch = new SyncBatch<ErpFornecedorDto>(Guid.NewGuid(), DateTime.UtcNow, alterados, IsDelta: true, TenantId: _tenantId, BranchId: _filialId);
+            var batch = new SyncBatch<ErpFornecedorDto>(Guid.NewGuid(), DateTime.UtcNow, alterados, IsDelta: !isInitial, TenantId: _tenantId, BranchId: _filialId);
 
-            var sucesso = await TentarEnviarAoSaasAsync("api/agent/v1/sync/fornecedores", "fornecedores", batch, ct);
+            var ok = await TentarEnviarAoSaasAsync("api/agent/v1/sync/fornecedores", "fornecedores", batch, ct);
             sw.Stop();
 
-            if (sucesso)
+            if (ok)
             {
-                lock (_stateLock)
+                _sqliteRepo.ConfirmSyncedFingerprints(
+                    _tenantId, _filialId, "Fornecedores",
+                    alterados.Select(f => (f.CodigoErp, ComputeFornecedorFingerprint(f)))
+                );
+                _sqliteRepo.UpdateSyncStats(_tenantId, _filialId, "Fornecedores", alterados.Count, alterados.Count, 0);
+
+                if (isInitial)
                 {
-                    _syncState.UltimosFornecedores = DateTime.UtcNow;
-                    SaveSyncState();
+                    _sqliteRepo.MarkInitialSyncCompleted(_tenantId, _filialId, "Fornecedores", alterados.Count, _connector.ConnectorName);
                 }
-                Log("SUCCESS", $"{alterados.Count} fornecedores sincronizados com o Nexo SaaS.");
+
+                Log("SUCCESS", $"{alterados.Count} fornecedores sincronizados com o Nexo Compras.");
                 _state.RegisterSyncDone("Fornecedores", alterados.Count, sw.ElapsedMilliseconds, "Sucesso", $"{alterados.Count} fornecedores sincronizados", DateTime.UtcNow.Add(IntervaloFornecedores));
                 return new SyncStepResult("Fornecedores", true, alterados.Count);
             }
@@ -515,6 +637,8 @@ public class IncrementalSyncEngine
             return new SyncStepResult("Fornecedores", false, 0, ex.Message);
         }
     }
+
+    #endregion
 
     public async Task DescarregarFilaOfflineAsync(CancellationToken ct = default)
     {
@@ -552,7 +676,7 @@ public class IncrementalSyncEngine
                 else
                 {
                     _queue.MarkFailed(item.OperationId, $"HTTP {res.StatusCode}");
-                    break; // Interrompe para preservar a ordem FIFO
+                    break;
                 }
             }
             catch (Exception ex)
@@ -586,25 +710,30 @@ public class IncrementalSyncEngine
         }
     }
 
-    private static string ComputeProdutoHash(ErpProdutoDto p)
+    #region Algoritmos de Fingerprint / Checksum Normalizados (SHA-256)
+
+    public static string ComputeProdutoFingerprint(ErpProdutoDto p)
     {
         var cod = (p.CodigoErp ?? "").Trim().ToUpperInvariant();
-        var desc = (p.Descricao ?? "").Trim().ToUpperInvariant();
-        var un = (p.Unidade ?? "").Trim().ToUpperInvariant();
+        var desc = (p.Descricao ?? "").Trim();
+        var un = string.IsNullOrWhiteSpace(p.Unidade) ? "UN" : p.Unidade.Trim().ToUpperInvariant();
         var barr = (p.CodigoBarras ?? "").Trim();
         var ncm = (p.Ncm ?? "").Trim();
         var grupo = (p.Grupo ?? "").Trim().ToUpperInvariant();
+        var cat = (p.Categoria ?? "").Trim().ToUpperInvariant();
         var forn = (p.FornecedorErpId ?? "").Trim().ToUpperInvariant();
         var pv = p.PrecoVenda.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
         var ca = p.CustoAtual.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
         var em = p.EstoqueMinimo.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
         var atv = p.Ativo ? "1" : "0";
+        var dt = p.UltimaAtualizacao.HasValue ? p.UltimaAtualizacao.Value.ToString("o") : "";
 
-        var raw = $"{cod}|{desc}|{un}|{barr}|{ncm}|{grupo}|{forn}|{pv}|{ca}|{em}|{atv}";
-        return ComputeHash(raw);
+        var raw = $"{cod}|{desc}|{un}|{barr}|{ncm}|{grupo}|{cat}|{forn}|{pv}|{ca}|{em}|{atv}|{dt}";
+        using var sha = SHA256.Create();
+        return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant();
     }
 
-    private static string ComputeFornecedorHash(ErpFornecedorDto f)
+    public static string ComputeFornecedorFingerprint(ErpFornecedorDto f)
     {
         var cod = (f.CodigoErp ?? "").Trim().ToUpperInvariant();
         var raz = (f.RazaoSocial ?? "").Trim().ToUpperInvariant();
@@ -612,50 +741,25 @@ public class IncrementalSyncEngine
         var cnpj = new string((f.Cnpj ?? "").Where(char.IsDigit).ToArray());
         var tel = new string((f.Telefone ?? "").Where(char.IsDigit).ToArray());
         var email = (f.Email ?? "").Trim().ToLowerInvariant();
+        var end = (f.Endereco ?? "").Trim().ToUpperInvariant();
         var cidade = (f.Cidade ?? "").Trim().ToUpperInvariant();
         var uf = (f.Uf ?? "").Trim().ToUpperInvariant();
         var atv = f.Ativo ? "1" : "0";
 
-        var raw = $"{cod}|{raz}|{fan}|{cnpj}|{tel}|{email}|{cidade}|{uf}|{atv}";
-        return ComputeHash(raw);
+        var raw = $"{cod}|{raz}|{fan}|{cnpj}|{tel}|{email}|{end}|{cidade}|{uf}|{atv}";
+        using var sha = SHA256.Create();
+        return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant();
     }
 
-    private static string ComputeEstoqueHash(ErpEstoqueDto e)
+    public static string ComputeEstoqueFingerprint(ErpEstoqueDto e)
     {
         var cod = (e.CodigoErp ?? "").Trim().ToUpperInvariant();
-        var ea = e.EstoqueAtual?.ToString("F4", System.Globalization.CultureInfo.InvariantCulture) ?? "NULL";
+        var ea = e.EstoqueAtual.HasValue ? e.EstoqueAtual.Value.ToString("F4", System.Globalization.CultureInfo.InvariantCulture) : "NULL";
         var ep = e.EstoquePendente.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
         var raw = $"{cod}|{ea}|{ep}";
-        return ComputeHash(raw);
+        using var sha = SHA256.Create();
+        return Convert.ToHexString(sha.ComputeHash(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant();
     }
 
-    private static string ComputeHash(string input)
-    {
-        using var md5 = MD5.Create();
-        var bytes = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
-        return Convert.ToHexString(bytes);
-    }
-
-    private void LoadSyncState()
-    {
-        try
-        {
-            if (File.Exists(_syncStatePath))
-            {
-                var json = File.ReadAllText(_syncStatePath);
-                _syncState = JsonSerializer.Deserialize<SyncStateFile>(json) ?? new SyncStateFile();
-            }
-        }
-        catch { _syncState = new SyncStateFile(); }
-    }
-
-    private void SaveSyncState()
-    {
-        try
-        {
-            var json = JsonSerializer.Serialize(_syncState, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_syncStatePath, json);
-        }
-        catch { }
-    }
+    #endregion
 }

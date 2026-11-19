@@ -2,7 +2,7 @@ export interface User {
   id: string;
   nome: string;
   email: string;
-  perfil: 'PlatformAdmin' | 'TenantAdmin' | 'Buyer' | 'Viewer';
+  perfil: 'PlatformAdmin' | 'AdministradorGeral' | 'TenantAdmin' | 'Buyer' | 'Viewer';
   tenantId?: string;
 }
 
@@ -11,9 +11,13 @@ export interface TenantSummary {
   razaoSocial: string;
   nomeFantasia: string;
   cnpj: string;
-  status: 'Ativo' | 'Bloqueado' | 'Pendente';
+  status: 'Ativo' | 'Bloqueado' | 'Suspenso' | 'Inativo' | 'Encerrado' | 'Pendente';
   planoNome?: string;
   logoUrl?: string;
+  slug?: string;
+  mensalidadeFinal?: number;
+  moduloContratado?: string;
+  situacaoFinanceira?: string;
 }
 
 export interface Plano {
@@ -41,6 +45,11 @@ export interface AdminDashboard {
   sincronizadoresOffline?: number;
   sincronizadoresPendentes?: number;
   totalUsuarios: number;
+  totalProdutos?: number;
+  totalFornecedores?: number;
+  totalCotacoes?: number;
+  totalPedidos?: number;
+  totalOrdensServico?: number;
   mrrEstimado: number;
   ultimosTenants?: TenantSummary[];
   ultimasEmpresas?: TenantSummary[];
@@ -78,6 +87,11 @@ export interface CadastroCompletoEmpresaRequest {
   senhaInicial?: string;
   perfilAcesso?: string;
   gerarCodigoAtivacao: boolean;
+  slug?: string;
+  moduloContratado?: string;
+  descontoComercial?: number;
+  ajusteManual?: number;
+  justificativaPreco?: string;
 }
 
 export interface CadastroCompletoEmpresaResponse {
@@ -98,6 +112,8 @@ export interface CadastroCompletoEmpresaResponse {
   agenteNome?: string;
   codigoAtivacao?: string;
   codigoAtivacaoExpiraEm?: string;
+  slug?: string;
+  mensalidadeFinal?: number;
 }
 
 export interface AdminFilialItem {

@@ -56,8 +56,10 @@ builder.Services.AddScoped<ISessionService, SessionService>();
 builder.Services.AddScoped<ITenantConfigService, TenantConfigService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IAssinaturaService, AssinaturaService>();
+builder.Services.AddScoped<IPrecificacaoService, PrecificacaoService>();
 builder.Services.AddScoped<IFilialService, FilialService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
+builder.Services.AddScoped<DatabaseResetService>();
 
 // 4. Rate Limiting
 builder.Services.AddRateLimiter(options =>
@@ -132,8 +134,9 @@ builder.Services.AddAuthentication(options =>
 })
 .AddScheme<AuthenticationSchemeOptions, AgentAuthHandler>("Agent", _ => { });
 
-// 6. CORS para Frontend Vite e Ambientes SaaS
+// 6. CORS para Domínio Oficial nexoscompras.com.br, Railway e Ambiente de Desenvolvimento
 var allowedOriginsEnv = Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS");
+var isProd = builder.Environment.IsProduction();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -146,9 +149,24 @@ builder.Services.AddCors(options =>
                   .AllowAnyMethod()
                   .AllowCredentials();
         }
+        else if (isProd)
+        {
+            policy.SetIsOriginAllowed(origin =>
+                  {
+                      if (string.IsNullOrWhiteSpace(origin) || !Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                          return false;
+                      var host = uri.Host.ToLowerInvariant();
+                      return host == "nexoscompras.com.br" ||
+                             host.EndsWith(".nexoscompras.com.br") ||
+                             host.EndsWith(".up.railway.app");
+                  })
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials();
+        }
         else
         {
-            policy.SetIsOriginAllowed(origin => true)
+            policy.SetIsOriginAllowed(_ => true)
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();

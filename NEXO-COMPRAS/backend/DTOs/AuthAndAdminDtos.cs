@@ -2,16 +2,17 @@ using System.Text.Json;
 
 namespace Nexo.Api.DTOs;
 
-public record LoginRequest(string Email, string Senha);
+public record LoginRequest(string Email, string Senha, string? Slug = null);
 public record LoginResponse(string Token, UserDto Usuario, TenantSummaryDto? Tenant, string? RefreshToken = null, int ExpiresInSeconds = 0);
 public record RefreshRequest(string? RefreshToken);
 public record UserDto(Guid Id, string Nome, string Email, string Perfil, Guid? TenantId);
-public record TenantSummaryDto(Guid Id, string RazaoSocial, string NomeFantasia, string Cnpj, string Status, string? PlanoNome, string? LogoUrl = null);
+public record TenantSummaryDto(Guid Id, string RazaoSocial, string NomeFantasia, string Cnpj, string Status, string? PlanoNome, string? LogoUrl = null, string? Slug = null, decimal MensalidadeFinal = 50m, string? ModuloContratado = "Basico", string? SituacaoFinanceira = "Regular");
 
 public record RegisterTenantRequest(string RazaoSocial, string NomeFantasia, string Cnpj, string Email, string Telefone,
-    string AdminNome, string AdminEmail, string AdminSenha, Guid? PlanoId, string? Uf = null);
+    string AdminNome, string AdminEmail, string AdminSenha, Guid? PlanoId, string? Uf = null, string? Slug = null);
 
-public record UpdateTenantStatusRequest(string Status);
+public record UpdateTenantStatusRequest(string Status, string? Motivo = null);
+public record UpdateTenantSlugRequest(string Slug, string? Justificativa = null);
 public record CreatePlanRequest(string Nome, decimal Mensalidade, int MaxUsuarios, int MaxFiliais, int MaxFornecedores, int MaxCotacoesMes, string RecursosJson);
 public record AdminDashboardDto(int TotalTenants, int TenantsAtivos, int TenantsBloqueados, int TotalUsuarios, decimal MrrEstimado, List<TenantSummaryDto> UltimosTenants);
 
@@ -37,7 +38,12 @@ public record CadastroCompletoEmpresaRequest(
     string EmailLogin = "",
     string? SenhaInicial = null,
     string? PerfilAcesso = "admin",
-    bool GerarCodigoAtivacao = true
+    bool GerarCodigoAtivacao = true,
+    string? Slug = null,
+    string? ModuloContratado = "Basico",
+    decimal? DescontoComercial = 0m,
+    decimal? AjusteManual = 0m,
+    string? JustificativaPreco = null
 );
 
 public record CadastroCompletoEmpresaResponse(
@@ -57,7 +63,9 @@ public record CadastroCompletoEmpresaResponse(
     Guid? AgenteId,
     string? AgenteNome,
     string? CodigoAtivacao,
-    DateTime? CodigoAtivacaoExpiraEm
+    DateTime? CodigoAtivacaoExpiraEm,
+    string? Slug = null,
+    decimal MensalidadeFinal = 50m
 );
 
 public record TestarConexaoErpRequest(

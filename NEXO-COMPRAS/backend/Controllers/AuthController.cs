@@ -15,7 +15,9 @@ namespace Nexo.Api.Controllers;
 [Route("api/[controller]")]
 public class AuthController(NexoDbContext db, IJwtService jwt, ITenantContext tenant, IAuditService audit, ISessionService sessionService) : ControllerBase
 {
-    private static TenantSummaryDto? ToDto(Tenant? t) => t == null ? null : new(t.Id, t.RazaoSocial, t.NomeFantasia, t.Cnpj, t.Status, t.Plano?.Nome, t.LogoUrl);
+    private static TenantSummaryDto? ToDto(Tenant? t) => t == null
+        ? null
+        : new(t.Id, t.RazaoSocial, t.NomeFantasia, t.Cnpj, t.Status, t.Plano?.Nome, t.LogoUrl, t.Slug, t.MensalidadeFinal, t.ModuloContratado, t.SituacaoFinanceira);
 
     [HttpPost("login")]
     [EnableRateLimiting("auth")]
@@ -43,7 +45,20 @@ public class AuthController(NexoDbContext db, IJwtService jwt, ITenantContext te
             return Unauthorized(new { erro = "Credenciais inválidas." });
         }
         if (!u.Ativo) return Unauthorized(new { erro = "Usuário inativo. Contate o administrador." });
-        if (u.Tenant is { Status: "Bloqueado" }) return Unauthorized(new { erro = "Acesso da empresa bloqueado. Contate o suporte." });
+        if (u.Tenant is { Status: "Bloqueado" or "Suspenso" or "Inativo" or "Encerrado" })
+            return Unauthorized(new { codigo = "EMPRESA_SUSPENSA", erro = $"Acesso da empresa {u.Tenant.Status.ToLower()}. Contate o suporte ou Administrador Geral." });
+
+        // Se o login partiu de uma URL individual da empresa (/:slug/login), valida que o usuário pertence àquela empresa
+        if (!string.IsNullOrWhiteSpace(req.Slug) && u.Tenant != null)
+        {
+            var reqSlugNorm = SlugHelper.NormalizeSlug(req.Slug);
+            if (!string.IsNullOrWhiteSpace(reqSlugNorm) &&
+                !string.IsNullOrWhiteSpace(u.Tenant.Slug) &&
+                !string.Equals(u.Tenant.Slug, reqSlugNorm, StringComparison.OrdinalIgnoreCase))
+            {
+                return StatusCode(403, new { codigo = "ACESSO_CRUZADO_NEGADO", erro = "Esta conta de usuário pertence a outra empresa e não pode acessar este endereço." });
+            }
+        }
 
         u.UltimoLogin = DateTime.UtcNow; u.FalhasLogin = 0; u.BloqueadoAte = null;
         audit.Add("Login", "Usuario", u.Id.ToString(), null, u.TenantId, u.Id);
@@ -113,11 +128,46 @@ public class AuthController(NexoDbContext db, IJwtService jwt, ITenantContext te
         var plano = r.PlanoId.HasValue ? await db.Planos.FirstOrDefaultAsync(p => p.Id == r.PlanoId && p.Ativo) : null;
         plano ??= await db.Planos.Where(p => p.Ativo).OrderBy(p => p.Mensalidade).FirstOrDefaultAsync();
 
+        string slugFinal;
+        if (!string.IsNullOrWhiteSpace(r.Slug))
+        {
+            var (valido, slugNorm, erroSlug) = SlugHelper.ValidateSlug(r.Slug);
+            if (!valido) return BadRequest(new { erro = erroSlug });
+            if (await db.Tenants.IgnoreQueryFilters().AnyAsync(x => x.Slug.ToLower() == slugNorm))
+                return BadRequest(new { erro = $"O endereço '/{slugNorm}' já está em uso por outra empresa." });
+            slugFinal = slugNorm;
+        }
+        else
+        {
+            var baseSlug = SlugHelper.NormalizeSlug(!string.IsNullOrWhiteSpace(r.NomeFantasia) ? r.NomeFantasia : r.RazaoSocial);
+            if (string.IsNullOrWhiteSpace(baseSlug) || SlugHelper.IsReservedSlug(baseSlug) || baseSlug.Length < 2)
+                baseSlug = $"empresa-{cnpj[..8]}";
+            slugFinal = baseSlug;
+            int suffix = 2;
+            while (await db.Tenants.IgnoreQueryFilters().AnyAsync(x => x.Slug.ToLower() == slugFinal))
+            {
+                slugFinal = $"{baseSlug}-{suffix++}";
+            }
+        }
+
         var t = new Tenant
         {
-            RazaoSocial = r.RazaoSocial.Trim(), NomeFantasia = string.IsNullOrWhiteSpace(r.NomeFantasia) ? r.RazaoSocial.Trim() : r.NomeFantasia.Trim(),
-            Cnpj = cnpj, Email = r.Email?.Trim() ?? string.Empty, Telefone = r.Telefone?.Trim() ?? string.Empty, Status = "Ativo",
-            PlanoId = plano?.Id, DataExpiracao = DateTime.UtcNow.AddDays(15),
+            Slug = slugFinal,
+            RazaoSocial = r.RazaoSocial.Trim(),
+            NomeFantasia = string.IsNullOrWhiteSpace(r.NomeFantasia) ? r.RazaoSocial.Trim() : r.NomeFantasia.Trim(),
+            Cnpj = cnpj,
+            Email = r.Email?.Trim() ?? string.Empty,
+            Telefone = r.Telefone?.Trim() ?? string.Empty,
+            Status = "Ativo",
+            PlanoId = plano?.Id,
+            DataExpiracao = DateTime.UtcNow.AddDays(15),
+            ModuloContratado = "Basico",
+            VolumeUtilizacao = "Baixo",
+            MensalidadeCalculada = 50.00m,
+            MensalidadeFinal = 50.00m,
+            DataInicioCobranca = DateTime.UtcNow,
+            ProximoVencimento = DateTime.UtcNow.AddDays(15),
+            SituacaoFinanceira = "Regular"
         };
         var admin = new Usuario
         {
@@ -127,8 +177,8 @@ public class AuthController(NexoDbContext db, IJwtService jwt, ITenantContext te
         db.Usuarios.Add(admin);
         db.ConfiguracoesTenant.Add(new ConfiguracaoTenant { TenantId = t.Id, Uf = (r.Uf ?? string.Empty).Trim().ToUpperInvariant() });
         if (plano != null)
-            db.Assinaturas.Add(new Assinatura { TenantId = t.Id, PlanoId = plano.Id, Status = "Teste", DataFim = DateTime.UtcNow.AddDays(15), Valor = plano.Mensalidade });
-        audit.Add("EmpresaCriada", "Tenant", t.Id.ToString(), new { t.Cnpj, plano = plano?.Nome }, t.Id, admin.Id);
+            db.Assinaturas.Add(new Assinatura { TenantId = t.Id, PlanoId = plano.Id, Status = "Teste", DataFim = DateTime.UtcNow.AddDays(15), Valor = t.MensalidadeFinal });
+        audit.Add("EmpresaCriada", "Tenant", t.Id.ToString(), new { t.Cnpj, t.Slug, plano = plano?.Nome }, t.Id, admin.Id);
         await db.SaveChangesAsync();
 
         t.Plano = plano;

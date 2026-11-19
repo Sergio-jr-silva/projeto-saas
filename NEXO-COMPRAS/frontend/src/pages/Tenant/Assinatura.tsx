@@ -37,6 +37,10 @@ interface LimitesUso {
   maxFiliais: number;
   cotacoesMesUsadas: number;
   maxCotacoesMes: number;
+  produtosUsados?: number;
+  maxProdutos?: number;
+  sincronizadoresUsados?: number;
+  maxSincronizadores?: number;
 }
 
 interface AssinaturaDetalhe {
@@ -52,6 +56,27 @@ interface AssinaturaDetalhe {
   formaPagamento: string;
   diasRestantesTeste: number;
   limites: LimitesUso;
+  slug?: string;
+  faixaComercial?: string;
+  moduloContratado?: string;
+  moduloDescricao?: string;
+  volumeUtilizacao?: string;
+  mensalidadeCalculada?: number;
+  descontoComercial?: number;
+  ajusteManual?: number;
+  mensalidadeFinal?: number;
+  situacaoFinanceira?: string;
+  proximoVencimento?: string;
+}
+
+interface SolicitacaoPlano {
+  id: string;
+  moduloAtual: string;
+  moduloSolicitado: string;
+  observacoesCliente: string;
+  status: string;
+  respostaAdmin: string;
+  dataCriacao: string;
 }
 
 interface Fatura {
@@ -82,22 +107,45 @@ export const Assinatura: React.FC = () => {
   const [copiadoPix, setCopiadoPix] = useState(false);
   const [modalCancelar, setModalCancelar] = useState(false);
   const [motivoCancelamento, setMotivoCancelamento] = useState('');
+  const [solicitacoes, setSolicitacoes] = useState<SolicitacaoPlano[]>([]);
+  const [moduloSolicitado, setModuloSolicitado] = useState('CompletoServicos');
+  const [obsSolicitacao, setObsSolicitacao] = useState('');
 
   const carregarDados = async () => {
     try {
       setLoading(true);
-      const [resAssinatura, resPlanos, resFaturas] = await Promise.all([
+      const [resAssinatura, resPlanos, resFaturas, resSol] = await Promise.all([
         api.get<AssinaturaDetalhe>('/assinaturas/minha'),
         api.get<Plano[]>('/assinaturas/planos'),
-        api.get<Fatura[]>('/assinaturas/faturas')
+        api.get<Fatura[]>('/assinaturas/faturas'),
+        api.get<SolicitacaoPlano[]>('/assinaturas/solicitacoes').catch(() => [])
       ]);
       setAssinatura(resAssinatura);
       setPlanos(resPlanos);
       setFaturas(resFaturas);
+      setSolicitacoes(resSol);
     } catch (err: any) {
       console.error('Erro ao carregar dados da assinatura:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSolicitarAlteracao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setProcessando(true);
+      await api.post('/assinaturas/solicitar-alteracao', {
+        moduloSolicitado,
+        observacoesCliente: obsSolicitacao
+      });
+      alert('Solicitação de alteração enviada ao Administrador Geral para aprovação!');
+      setObsSolicitacao('');
+      await carregarDados();
+    } catch (err: any) {
+      alert('Erro ao solicitar alteração: ' + err.message);
+    } finally {
+      setProcessando(false);
     }
   };
 
@@ -344,9 +392,74 @@ export const Assinatura: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {/* Produtos Cadastrados */}
+                <div style={{ backgroundColor: '#F8FAFC', padding: '14px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>
+                    <span>Produtos Cadastrados</span>
+                    <span>{(assinatura.limites.produtosUsados ?? 0).toLocaleString('pt-BR')} / {(assinatura.limites.maxProdutos ?? 10000).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                    Sincronizadores SINc ativos: <strong>{assinatura.limites.sincronizadoresUsados ?? 1} / {assinatura.limites.maxSincronizadores ?? 3}</strong>
+                  </div>
+                </div>
               </div>
             </div>
           )}
+
+          {/* DETALHE DA PRECIFICAÇÃO DINÂMICA E SOLICITAÇÃO DE ALTERAÇÃO */}
+          <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-light)', paddingTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+            <div style={{ backgroundColor: '#EFF6FF', padding: '16px', borderRadius: '10px', border: '1px solid #BFDBFE' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E40AF', marginBottom: '10px', textTransform: 'uppercase' }}>
+                Condição Comercial & Mensalidade Vigente
+              </div>
+              <div style={{ fontSize: '13px', lineHeight: 1.8 }}>
+                <div>URL Individual: <strong>nexoscompras.com.br/{assinatura.slug || 'empresa'}</strong></div>
+                <div>Faixa Comercial: <strong>{assinatura.faixaComercial || 'Essencial'}</strong></div>
+                <div>Recursos Contratados: <strong>{assinatura.moduloDescricao || 'Compras e cotações básicas'}</strong></div>
+                <div>Volume de Utilização: <strong>{assinatura.volumeUtilizacao || 'Baixo'}</strong></div>
+                <div>Situação Financeira: <strong>{assinatura.situacaoFinanceira || 'Regular'}</strong></div>
+                <div>Mensalidade Vigente: <strong style={{ fontSize: '16px', color: 'var(--blue-primary)' }}>R$ {(assinatura.mensalidadeFinal ?? assinatura.valor).toFixed(2)}/mês</strong></div>
+              </div>
+            </div>
+
+            <form onSubmit={handleSolicitarAlteracao} style={{ backgroundColor: '#F8FAFC', padding: '16px', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', textTransform: 'uppercase' }}>
+                Solicitar Alteração de Módulos / Plano
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                Solicite upgrade ou alteração de módulos. A aprovação e atualização comercial serão analisadas pelo Administrador Geral.
+              </p>
+              <div className="form-group" style={{ marginBottom: '8px' }}>
+                <select
+                  value={moduloSolicitado}
+                  onChange={(e) => setModuloSolicitado(e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', fontSize: '13px' }}
+                >
+                  <option value="Basico">Compras e cotações básicas</option>
+                  <option value="RelatoriosAvancados">Compras e relatórios avançados</option>
+                  <option value="CompletoServicos">Compras, relatórios e serviços</option>
+                </select>
+              </div>
+              <div className="form-group" style={{ marginBottom: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="Observações ou necessidade adicional (ex: mais filiais/usuários)"
+                  value={obsSolicitacao}
+                  onChange={(e) => setObsSolicitacao(e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', fontSize: '13px' }}
+                />
+              </div>
+              <button type="submit" disabled={processando} className="btn btn-primary" style={{ width: '100%', padding: '8px', fontSize: '13px' }}>
+                Enviar Solicitação ao Administrador Geral
+              </button>
+              {solicitacoes.length > 0 && (
+                <div style={{ marginTop: '8px', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                  Última solicitação: <strong>{solicitacoes[0].moduloSolicitado}</strong> ({solicitacoes[0].status})
+                </div>
+              )}
+            </form>
+          </div>
         </div>
       )}
 

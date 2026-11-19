@@ -13,6 +13,16 @@ public class WebhooksController(IAssinaturaService assinaturaService) : Controll
     [HttpPost("pagamentos")]
     public async Task<IActionResult> ProcessarWebhookPagamento([FromBody] WebhookPagamentoPayload payload)
     {
+        var configuredSecret = Environment.GetEnvironmentVariable("PAYMENT_WEBHOOK_SECRET");
+        if (!string.IsNullOrWhiteSpace(configuredSecret))
+        {
+            if (!Request.Headers.TryGetValue("X-Webhook-Token", out var headerToken) ||
+                !string.Equals(headerToken.ToString(), configuredSecret, StringComparison.Ordinal))
+            {
+                return Unauthorized(new { erro = "Assinatura de webhook inválida ou não autorizada." });
+            }
+        }
+
         if (payload == null || string.IsNullOrWhiteSpace(payload.Evento))
             return BadRequest(new { erro = "Payload de webhook inválido." });
 

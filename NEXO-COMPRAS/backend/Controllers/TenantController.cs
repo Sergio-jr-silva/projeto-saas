@@ -13,9 +13,76 @@ namespace Nexo.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "TenantAdmin,Buyer,Viewer,PlatformAdmin")]
+[Authorize(Roles = "TenantAdmin,Buyer,Viewer,PlatformAdmin,AdministradorGeral")]
 public class TenantController(NexoDbContext db, ITenantContext tenant, ITenantConfigService cfgService, IAuditService audit, IFileStorage fileStorage) : ControllerBase
 {
+    /// <summary>
+    /// Resolução pública de slug multi-tenant (/alemdopao, /paonorte, /autopecas).
+    /// Retorna apenas metadados públicos de roteamento (sem expor dados operacionais da empresa).
+    /// </summary>
+    [HttpGet("resolve/{slug}")]
+    [HttpGet("/api/tenants/resolve/{slug}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResolveSlug(string slug)
+    {
+        var norm = SlugHelper.NormalizeSlug(slug);
+        if (string.IsNullOrWhiteSpace(norm))
+            return BadRequest(new { codigo = "SLUG_INVALIDO", erro = "Slug da empresa inválido." });
+
+        if (SlugHelper.IsReservedSlug(norm))
+            return BadRequest(new { codigo = "ROTA_RESERVADA", slug = norm, erro = $"O caminho '/{norm}' é uma rota reservada do sistema." });
+
+        using var _ = tenant.SystemScope();
+        var t = await db.Tenants.IgnoreQueryFilters().AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Slug.ToLower() == norm);
+
+        if (t == null)
+        {
+            return NotFound(new
+            {
+                codigo = "SLUG_INEXISTENTE",
+                slug = norm,
+                erro = $"Nenhuma empresa encontrada para o endereço '/{norm}'."
+            });
+        }
+
+        if (t.Status.Equals("Suspenso", StringComparison.OrdinalIgnoreCase) ||
+            t.Status.Equals("Bloqueado", StringComparison.OrdinalIgnoreCase))
+        {
+            return StatusCode(403, new
+            {
+                codigo = "EMPRESA_SUSPENSA",
+                slug = t.Slug,
+                nomeFantasia = t.NomeFantasia,
+                status = t.Status,
+                erro = "O acesso desta empresa encontra-se temporariamente suspenso. Contate o Administrador Geral."
+            });
+        }
+
+        if (t.Status.Equals("Inativo", StringComparison.OrdinalIgnoreCase) ||
+            t.Status.Equals("Encerrado", StringComparison.OrdinalIgnoreCase))
+        {
+            return StatusCode(403, new
+            {
+                codigo = "EMPRESA_INATIVA",
+                slug = t.Slug,
+                nomeFantasia = t.NomeFantasia,
+                status = t.Status,
+                erro = "Esta empresa encontra-se inativa ou com contrato encerrado."
+            });
+        }
+
+        return Ok(new
+        {
+            id = t.Id,
+            slug = t.Slug,
+            razaoSocial = t.RazaoSocial,
+            nomeFantasia = t.NomeFantasia,
+            status = t.Status,
+            logoUrl = t.LogoUrl
+        });
+    }
+
     [HttpGet("info")]
     public async Task<IActionResult> Info()
     {
@@ -24,7 +91,9 @@ public class TenantController(NexoDbContext db, ITenantContext tenant, ITenantCo
         if (t == null) return NotFound(new { erro = "Empresa não encontrada." });
         return Ok(new
         {
-            t.Id, t.RazaoSocial, t.NomeFantasia, t.Cnpj, t.Email, t.Telefone, t.Status, t.DataExpiracao,
+            t.Id, t.Slug, t.RazaoSocial, t.NomeFantasia, t.Cnpj, t.Email, t.Telefone, t.Status, t.DataExpiracao,
+            t.ModuloContratado, t.VolumeUtilizacao, t.MensalidadeCalculada, t.DescontoComercial, t.AjusteManual, t.MensalidadeFinal,
+            t.SituacaoFinanceira, t.DataInicioCobranca, t.ProximoVencimento,
             t.InscricaoEstadual, t.InscricaoMunicipal,
             t.Endereco, t.Numero, t.Complemento, t.Bairro, t.Cidade, t.Uf, t.Cep,
             t.LogoUrl, t.LogoMimeType, t.LogoAtualizadaEm,

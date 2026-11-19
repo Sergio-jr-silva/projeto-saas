@@ -26,7 +26,19 @@ public record AssinaturaDetalheDto(
     DateTime? DataRenovacao,
     string FormaPagamento,
     int DiasRestantesTeste,
-    LimitesUsoDto Limites
+    LimitesUsoDto Limites,
+    string? Slug = null,
+    string? FaixaComercial = "Essencial",
+    string? ModuloContratado = "Basico",
+    string? ModuloDescricao = "Compras e cotações básicas",
+    string? VolumeUtilizacao = "Baixo",
+    decimal MensalidadeCalculada = 50.00m,
+    decimal DescontoComercial = 0.00m,
+    decimal AjusteManual = 0.00m,
+    decimal MensalidadeFinal = 50.00m,
+    string? SituacaoFinanceira = "Regular",
+    DateTime? ProximoVencimento = null,
+    SimulacaoPrecificacaoResponse? DetalhePrecificacao = null
 );
 
 public record LimitesUsoDto(
@@ -35,7 +47,11 @@ public record LimitesUsoDto(
     int FiliaisUsadas,
     int MaxFiliais,
     int CotacoesMesUsadas,
-    int MaxCotacoesMes
+    int MaxCotacoesMes,
+    int ProdutosUsados = 0,
+    int MaxProdutos = 10000,
+    int SincronizadoresUsados = 1,
+    int MaxSincronizadores = 3
 );
 
 public record FaturaDto(
@@ -186,4 +202,155 @@ public record FilialResumoDto(
     decimal ValorEstoqueEstimado,
     string StatusSincronizacao
 );
+
+// =============================================================================
+// FASE SAAS MULTI-TENANT: Precificação Dinâmica (R$ 50,00 a R$ 250,00) & Slug
+// =============================================================================
+
+public record SimulacaoPrecificacaoRequest(
+    int QuantidadeProdutos,
+    int QuantidadeFiliais,
+    int QuantidadeUsuarios,
+    int QuantidadeSincronizadores,
+    string? VolumeUtilizacao = "Baixo",
+    string? ModuloContratado = "Basico",
+    decimal Desconto = 0.00m,
+    decimal AjusteManual = 0.00m
+);
+
+public record SimulacaoPrecificacaoResponse(
+    int VersaoTabela,
+    decimal ValorBase,
+    decimal ValorMinimo,
+    decimal ValorMaximo,
+    decimal AdicionalProdutos,
+    string FaixaProdutos,
+    decimal AdicionalFiliais,
+    string FaixaFiliais,
+    decimal AdicionalUsuarios,
+    string FaixaUsuarios,
+    decimal AdicionalSincronizadores,
+    string FaixaSincronizadores,
+    decimal AdicionalVolume,
+    string FaixaVolume,
+    decimal AdicionalModulos,
+    string FaixaModulos,
+    string ModuloCodigo,
+    decimal SomaAdicionais,
+    decimal SubtotalBruto,
+    decimal MensalidadeCalculada,
+    decimal Desconto,
+    decimal AjusteManual,
+    decimal MensalidadeFinal,
+    string FaixaComercial
+);
+
+public record PrecificacaoTenantDetalheDto(
+    Guid TenantId,
+    string RazaoSocial,
+    string NomeFantasia,
+    string Slug,
+    string Cnpj,
+    string Status,
+    int ProdutosCadastrados,
+    int FiliaisAtivas,
+    int UsuariosAtivos,
+    int SincronizadoresAtivos,
+    int CotacoesNoMes,
+    int PedidosNoMes,
+    int SincronizacoesEfetivasNoMes,
+    int SincronizacoesSemAlteracaoIgnoradas,
+    int RegistrosProcessadosNoMes,
+    string VolumeUtilizacao,
+    string VolumeSugerido,
+    string ModuloContratado,
+    string ModuloDescricao,
+    decimal MensalidadeCalculada,
+    decimal Desconto,
+    decimal AjusteManual,
+    decimal MensalidadeFinal,
+    decimal MensalidadeSimuladaAtual,
+    string FaixaComercial,
+    string JustificativaPreco,
+    DateTime DataInicioCobranca,
+    DateTime ProximoVencimento,
+    string SituacaoFinanceira,
+    int MaxUsuariosContratado,
+    int MaxFiliaisContratado,
+    int MaxProdutosContratado,
+    int MaxSincronizadoresContratado,
+    SimulacaoPrecificacaoResponse DetalheCalculo
+);
+
+public record AplicarPrecificacaoTenantRequest(
+    string? ModuloContratado,
+    string? VolumeUtilizacao,
+    decimal Desconto,
+    decimal AjusteManual,
+    string? Justificativa,
+    DateTime? DataInicioCobranca = null,
+    DateTime? ProximoVencimento = null,
+    string? SituacaoFinanceira = null,
+    int? MaxUsuariosContratado = null,
+    int? MaxFiliaisContratado = null,
+    int? MaxProdutosContratado = null,
+    int? MaxSincronizadoresContratado = null
+);
+
+public record AtualizarConfiguracaoPrecificacaoRequest(
+    decimal MensalidadeBase,
+    decimal ValorMinimo,
+    decimal ValorMaximo,
+    decimal AdicProdFaixa1,
+    decimal AdicProdFaixa2,
+    decimal AdicProdFaixa3,
+    decimal AdicProdFaixa4,
+    decimal AdicFilialFaixa1,
+    decimal AdicFilialFaixa2,
+    decimal AdicFilialFaixa3,
+    decimal AdicFilialFaixa4,
+    decimal AdicUsuarioFaixa1,
+    decimal AdicUsuarioFaixa2,
+    decimal AdicUsuarioFaixa3,
+    decimal AdicUsuarioFaixa4,
+    decimal AdicSincFaixa1,
+    decimal AdicSincFaixa2,
+    decimal AdicSincFaixa3,
+    decimal AdicVolumeBaixo,
+    decimal AdicVolumeMedio,
+    decimal AdicVolumeAlto,
+    decimal AdicModuloBasico,
+    decimal AdicModuloRelatorios,
+    decimal AdicModuloCompleto,
+    string? MotivoAlteracao = null
+);
+
+public record HistoricoComercialDto(
+    Guid Id,
+    Guid TenantId,
+    string TipoAlteracao,
+    decimal MensalidadeAnterior,
+    decimal MensalidadeCalculada,
+    decimal DescontoAplicado,
+    decimal AjusteManual,
+    decimal MensalidadeFinal,
+    string ModuloContratado,
+    string VolumeUtilizacao,
+    string Justificativa,
+    string AlteradoPor,
+    bool NotificadoCliente,
+    int VersaoTabelaPrecos,
+    DateTime DataCriacao
+);
+
+public record SolicitarAlteracaoPlanoRequest(
+    string ModuloSolicitado,
+    string? ObservacoesCliente
+);
+
+public record ResponderSolicitacaoPlanoRequest(
+    bool Aprovar,
+    string? RespostaAdmin
+);
+
 

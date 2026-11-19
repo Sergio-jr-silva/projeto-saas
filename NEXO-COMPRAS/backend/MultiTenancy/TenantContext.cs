@@ -32,7 +32,8 @@ public class TenantContext : ITenantContext
     public string? UserName { get; private set; }
     public string? Role { get; private set; }
     public string Ip { get; private set; } = string.Empty;
-    public bool IsPlatformAdmin => string.Equals(Role, "PlatformAdmin", StringComparison.OrdinalIgnoreCase);
+    public bool IsPlatformAdmin => string.Equals(Role, "PlatformAdmin", StringComparison.OrdinalIgnoreCase)
+                                   || string.Equals(Role, "AdministradorGeral", StringComparison.OrdinalIgnoreCase);
     public bool BypassRls => _bypassDepth > 0 || _platformBypass;
 
     public void SetIdentity(Guid? userId, string? userName, string? role, Guid? tenantId, string ip)

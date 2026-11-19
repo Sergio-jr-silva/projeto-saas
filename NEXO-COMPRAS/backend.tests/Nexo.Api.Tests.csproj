@@ -23,9 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\backend\Nexo.Api.csproj" />
-    <Reference Include="Nexo.Agent.Core">
-      <HintPath>..\agent-core\bin\Debug\net9.0\Nexo.Agent.Core.dll</HintPath>
-    </Reference>
+    <ProjectReference Include="..\agent-core\Nexo.Agent.Core.csproj" />
   </ItemGroup>
 
 </Project>

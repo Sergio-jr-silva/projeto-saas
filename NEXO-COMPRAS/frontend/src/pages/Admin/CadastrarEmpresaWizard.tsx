@@ -61,10 +61,12 @@ export const CadastrarEmpresaWizard: React.FC = () => {
     // Etapa 1: Empresa
     razaoSocial: '',
     nomeFantasia: '',
+    slug: '',
     cnpj: '',
     email: '',
     telefone: '',
     planoId: '',
+    moduloContratado: 'Basico',
 
     // Etapa 2: Filial
     nomeFilial: 'Matriz - Centro',
@@ -391,18 +393,27 @@ Senha Inicial: ${sucessoCriacao.senhaInicial}
             </div>
           </div>
 
-          <div className="form-group">
-            <label>Plano Comercial Contratado</label>
-            <select
-              value={formData.planoId}
-              onChange={(e) => setFormData({ ...formData, planoId: e.target.value })}
-            >
-              {planos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nome} — R$ {p.mensalidade.toFixed(2)}/mês
-                </option>
-              ))}
-            </select>
+          <div className="grid-cols-2">
+            <div className="form-group">
+              <label>Slug da URL Exclusiva (nexoscompras.com.br/slug)</label>
+              <input
+                placeholder="Ex: alemdopao, paonorte, autopecas"
+                value={formData.slug}
+                onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Módulos Contratados (Precificação Dinâmica R$ 50 – R$ 250)</label>
+              <select
+                value={formData.moduloContratado}
+                onChange={(e) => setFormData({ ...formData, moduloContratado: e.target.value })}
+              >
+                <option value="Basico">Compras e cotações básicas (Base R$ 50,00)</option>
+                <option value="RelatoriosAvancados">Compras e relatórios avançados (+R$ 15,00)</option>
+                <option value="CompletoServicos">Compras, relatórios e serviços (+R$ 30,00)</option>
+              </select>
+            </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px' }}>
@@ -773,10 +784,12 @@ Senha Inicial: ${sucessoCriacao.senhaInicial}
                 setFormData({
                   razaoSocial: '',
                   nomeFantasia: '',
+                  slug: '',
                   cnpj: '',
                   email: '',
                   telefone: '',
                   planoId: planos.length > 0 ? planos[0].id : '',
+                  moduloContratado: 'Basico',
                   nomeFilial: 'Matriz - Centro',
                   codigoFilial: '001',
                   cnpjFilial: '',
