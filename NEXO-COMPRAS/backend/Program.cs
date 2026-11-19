@@ -23,9 +23,11 @@ var urls = !string.IsNullOrWhiteSpace(portEnv)
 builder.WebHost.UseUrls(urls);
 
 // 1. Configuração do Banco de Dados PostgreSQL (suporta connection string padrão e DATABASE_URL do Railway)
-var rawConn = Environment.GetEnvironmentVariable("DATABASE_URL")
-    ?? builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Host=127.0.0.1;Port=5433;Database=nexo;Username=postgres;Password=postgres";
+var envDbUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+var cfgConn = builder.Configuration.GetConnectionString("DefaultConnection");
+var rawConn = !string.IsNullOrWhiteSpace(envDbUrl) ? envDbUrl
+    : (!string.IsNullOrWhiteSpace(cfgConn) ? cfgConn
+    : "Host=127.0.0.1;Port=5433;Database=nexo;Username=postgres;Password=postgres");
 var connectionString = ParseConnectionString(rawConn);
 
 builder.Services.AddScoped<TenantConnectionInterceptor>();
@@ -38,9 +40,12 @@ builder.Services.AddDbContext<NexoDbContext>((sp, options) =>
 // 2. Injeção de Dependências de Segurança e Multi-Tenancy
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 
-var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "NexoComprasSaaSSecretKey2026SuperSecureKeyWith32CharsMin!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "https://nexocompras.com.br";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "https://app.nexocompras.com.br";
+var cfgJwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? builder.Configuration["Jwt:Secret"];
+var jwtSecret = !string.IsNullOrWhiteSpace(cfgJwtSecret) ? cfgJwtSecret : "NexoComprasSaaSSecretKey2026SuperSecureKeyWith32CharsMin!";
+var cfgIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtIssuer = !string.IsNullOrWhiteSpace(cfgIssuer) ? cfgIssuer : "https://nexoscompras.com.br";
+var cfgAudience = builder.Configuration["Jwt:Audience"];
+var jwtAudience = !string.IsNullOrWhiteSpace(cfgAudience) ? cfgAudience : "https://nexoscompras.com.br";
 var jwtOptions = new JwtOptions
 {
     Secret = jwtSecret,
