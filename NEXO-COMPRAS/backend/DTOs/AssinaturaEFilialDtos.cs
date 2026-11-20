@@ -294,7 +294,19 @@ public record AplicarPrecificacaoTenantRequest(
     int? MaxUsuariosContratado = null,
     int? MaxFiliaisContratado = null,
     int? MaxProdutosContratado = null,
-    int? MaxSincronizadoresContratado = null
+    int? MaxSincronizadoresContratado = null,
+    decimal? MensalidadeManual = null
+);
+
+public record EmpresaPendenteSincronizacaoDto(
+    Guid TenantId,
+    string NomeEmpresa,
+    string Cnpj,
+    string? FilialNome,
+    string? FilialCodigo,
+    string StatusSincronizacao,
+    DateTime? UltimaComunicacao,
+    string MotivoPendencia
 );
 
 public record AtualizarConfiguracaoPrecificacaoRequest(

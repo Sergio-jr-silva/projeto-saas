@@ -465,7 +465,7 @@ public class PrecificacaoService(NexoDbContext db, ITenantContext tenantCtx, IAu
             MensalidadeCalculada: sim.MensalidadeCalculada,
             Desconto: t.DescontoComercial,
             AjusteManual: t.AjusteManual,
-            MensalidadeFinal: t.MensalidadeFinal > 0 ? Math.Clamp(t.MensalidadeFinal, cfg.ValorMinimo, cfg.ValorMaximo) : sim.MensalidadeFinal,
+            MensalidadeFinal: t.MensalidadeFinal > 0 ? t.MensalidadeFinal : sim.MensalidadeFinal,
             MensalidadeSimuladaAtual: sim.MensalidadeFinal,
             FaixaComercial: sim.FaixaComercial,
             JustificativaPreco: t.JustificativaPreco,
@@ -525,7 +525,18 @@ public class PrecificacaoService(NexoDbContext db, ITenantContext tenantCtx, IAu
 
         var detalhePrevio = await ConstruirDetalheTenantAsync(t, cfg);
         t.MensalidadeCalculada = detalhePrevio.DetalheCalculo.MensalidadeCalculada;
-        t.MensalidadeFinal = detalhePrevio.DetalheCalculo.MensalidadeFinal;
+
+        if (req.MensalidadeManual.HasValue && req.MensalidadeManual.Value > 0)
+        {
+            // O Administrador Geral definiu manualmente a mensalidade negociada (sem teto artificial)
+            t.MensalidadeFinal = Math.Round(req.MensalidadeManual.Value, 2);
+            t.AjusteManual = Math.Round(t.MensalidadeFinal - t.MensalidadeCalculada + t.DescontoComercial, 2);
+        }
+        else
+        {
+            t.MensalidadeFinal = detalhePrevio.DetalheCalculo.MensalidadeFinal;
+        }
+
         t.JustificativaPreco = req.Justificativa?.Trim() ?? "Atualização comercial pelo Administrador Geral";
 
         // Sincroniza valor com a Assinatura ativa da empresa

@@ -177,17 +177,8 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* SEGUNDA LINHA DE INDICADORES REAIS DO BANCO (PRODUTOS, FORNECEDORES, COTAÇÕES, PEDIDOS E OS) */}
-      <div className="grid-cols-4" style={{ marginBottom: '28px', gap: '16px' }}>
-        <div className="card" style={{ padding: '14px 18px' }}>
-          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-            Produtos Sincronizados
-          </div>
-          <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>
-            {data?.totalProdutos ?? 0}
-          </div>
-        </div>
-
+      {/* SEGUNDA LINHA DE INDICADORES REAIS DO BANCO (FORNECEDORES, COTAÇÕES, PEDIDOS E OS) */}
+      <div className="grid-cols-3" style={{ marginBottom: '28px', gap: '16px' }}>
         <div className="card" style={{ padding: '14px 18px' }}>
           <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
             Fornecedores Sincronizados
@@ -213,6 +204,97 @@ export const AdminDashboard: React.FC = () => {
           <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>
             {data?.totalPedidos ?? 0} ped. • {data?.totalOrdensServico ?? 0} OS
           </div>
+        </div>
+      </div>
+
+      {/* EMPRESAS PENDENTES DE SINCRONIZAÇÃO */}
+      <div className="card" style={{ marginBottom: '28px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h2 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <RefreshCw size={18} style={{ color: 'var(--blue-primary)' }} />
+              Empresas pendentes de sincronização
+            </h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+              Empresas e filiais que ainda não completaram a sincronização inicial de produtos ou aguardam ativação do SINc.
+            </p>
+          </div>
+          <span className="badge badge-yellow" style={{ fontSize: '12px', padding: '4px 10px' }}>
+            {data?.empresasPendentesSincronizacao?.length ?? 0} {((data?.empresasPendentesSincronizacao?.length ?? 0) === 1) ? 'pendência' : 'pendências'}
+          </span>
+        </div>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#F8FAFC', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ padding: '10px 12px' }}>Nome da Empresa</th>
+                <th style={{ padding: '10px 12px' }}>CNPJ</th>
+                <th style={{ padding: '10px 12px' }}>Filial</th>
+                <th style={{ padding: '10px 12px' }}>Status da Sincronização</th>
+                <th style={{ padding: '10px 12px' }}>Última Comunicação</th>
+                <th style={{ padding: '10px 12px' }}>Motivo da Pendência</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(!data?.empresasPendentesSincronizacao || data.empresasPendentesSincronizacao.length === 0) ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                    <CheckCircle size={20} style={{ color: 'var(--green)', verticalAlign: 'middle', marginRight: '6px' }} />
+                    Todas as empresas cadastradas estão com a sincronização inicial concluída com sucesso!
+                  </td>
+                </tr>
+              ) : (
+                data.empresasPendentesSincronizacao.map((p, idx) => {
+                  const getStatusBadge = (status: string) => {
+                    switch (status) {
+                      case 'Aguardando ativação':
+                        return 'badge badge-yellow';
+                      case 'Nunca sincronizada':
+                        return 'badge badge-gray';
+                      case 'Sincronização inicial em andamento':
+                        return 'badge badge-blue';
+                      case 'Sincronização inicial com falha':
+                        return 'badge badge-red';
+                      default:
+                        return 'badge';
+                    }
+                  };
+
+                  const formatCnpj = (val: string) => {
+                    const dig = val.replace(/\D/g, '');
+                    if (dig.length === 14) {
+                      return dig.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+                    }
+                    return val || '—';
+                  };
+
+                  return (
+                    <tr key={`${p.tenantId}-${p.filialCodigo || idx}`} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '12px', fontWeight: 600 }}>{p.nomeEmpresa}</td>
+                      <td style={{ padding: '12px', fontFamily: 'monospace' }}>{formatCnpj(p.cnpj)}</td>
+                      <td style={{ padding: '12px' }}>
+                        {p.filialNome ? `${p.filialNome} (${p.filialCodigo || '001'})` : 'Matriz'}
+                      </td>
+                      <td style={{ padding: '12px' }}>
+                        <span className={getStatusBadge(p.statusSincronizacao)}>
+                          {p.statusSincronizacao}
+                        </span>
+                      </td>
+                      <td style={{ padding: '12px', fontSize: '12.5px' }}>
+                        {p.ultimaComunicacao
+                          ? new Date(p.ultimaComunicacao).toLocaleString('pt-BR')
+                          : <span style={{ color: 'var(--text-muted)' }}>Nunca comunicou</span>}
+                      </td>
+                      <td style={{ padding: '12px', color: p.statusSincronizacao.includes('falha') ? 'var(--red)' : 'var(--text-muted)' }}>
+                        {p.motivoPendencia}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

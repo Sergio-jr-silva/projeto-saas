@@ -199,6 +199,21 @@ app.UseMiddleware<TenantContextMiddleware>();
 app.UseAuthorization();
 
 // Endpoints de Verificação de Saúde (Health Check)
+app.MapGet("/", () => Results.Ok(new
+{
+    status = "online",
+    timestamp = DateTime.UtcNow,
+    service = "nexo-compras-api",
+    version = "1.0.0",
+    description = "API do Nexo Compras SaaS operacional"
+}));
+app.MapGet("/api", () => Results.Ok(new
+{
+    status = "online",
+    timestamp = DateTime.UtcNow,
+    service = "nexo-compras-api",
+    version = "1.0.0"
+}));
 app.MapGet("/health", () => Results.Ok(new
 {
     status = "healthy",

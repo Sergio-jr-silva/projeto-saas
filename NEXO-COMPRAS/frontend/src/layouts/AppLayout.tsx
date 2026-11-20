@@ -56,6 +56,7 @@ export const AppLayout: React.FC = () => {
     <NavLink
       to={resolveNavPath(to)}
       end={end}
+      onClick={() => setMobileMenuOpen(false)}
       className={({ isActive }) =>
         `nav-link ${isActive ? 'active' : ''}`
       }
@@ -63,7 +64,8 @@ export const AppLayout: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         gap: '10px',
-        padding: '8px 12px',
+        padding: '10px 12px',
+        minHeight: '44px',
         borderRadius: 'var(--radius-sm)',
         fontSize: '13.5px',
         fontWeight: isActive ? 600 : 500,
@@ -73,7 +75,7 @@ export const AppLayout: React.FC = () => {
         transition: 'all 0.15s ease'
       })}
     >
-      <Icon size={17} style={{ opacity: 0.9 }} />
+      <Icon size={18} style={{ opacity: 0.9 }} />
       <span>{label}</span>
     </NavLink>
   );
@@ -118,29 +120,45 @@ export const AppLayout: React.FC = () => {
         }}
       >
         {/* LOGO E IDENTIDADE */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px 18px', borderBottom: '1px solid var(--border-light)' }}>
-          <div style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            backgroundColor: 'var(--blue-primary)',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 800,
-            fontSize: '18px'
-          }}>
-            N
-          </div>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--blue-primary)', lineHeight: 1.1 }}>
-              NEXO COMPRAS
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px 18px', borderBottom: '1px solid var(--border-light)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--blue-primary)',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: '18px'
+            }}>
+              N
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              {isPlatformAdmin ? 'PAINEL SAAS GLOBAL' : 'GESTÃO INTELIGENTE'}
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '16px', color: 'var(--blue-primary)', lineHeight: 1.1 }}>
+                NEXO COMPRAS
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                {isPlatformAdmin ? 'PAINEL SAAS GLOBAL' : 'GESTÃO INTELIGENTE'}
+              </div>
             </div>
           </div>
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              display: mobileMenuOpen ? 'flex' : 'none',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              padding: '6px'
+            }}
+            aria-label="Fechar menu"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {/* NAVEGAÇÃO MULTI-SEÇÃO */}
@@ -279,21 +297,21 @@ export const AppLayout: React.FC = () => {
               />
             )}
             {tenant && (
-              <span className="badge badge-blue" style={{ fontSize: '12px', padding: '4px 10px' }}>
+              <span className="badge badge-blue hide-on-mobile" style={{ fontSize: '12px', padding: '4px 10px' }}>
                 <Building2 size={13} style={{ marginRight: '4px' }} />
                 {tenant.razaoSocial} ({tenant.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5")})
               </span>
             )}
             {tenant?.status === 'Ativo' && (
-              <span className="badge badge-green">Status: Ativo</span>
+              <span className="badge badge-green hide-on-mobile">Status: Ativo</span>
             )}
             {isPlatformAdmin && (
-              <span className="badge badge-yellow">Modo Super Admin</span>
+              <span className="badge badge-yellow hide-on-mobile">Modo Super Admin</span>
             )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ textAlign: 'right' }}>
+            <div className="hide-on-mobile" style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>
                 {user?.nome}
               </div>

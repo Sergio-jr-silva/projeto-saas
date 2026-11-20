@@ -63,6 +63,8 @@ public class AdminController(NexoDbContext db, IAuditService audit, DatabaseRese
             .Select(e => new FalhaSincronizacaoRecenteDto(e.Id, "Empresa", e.Origem, e.Mensagem, e.DataCriacao))
             .ToListAsync();
 
+        var pendenciasSinc = await ObterEmpresasPendentesSincronizacaoAsync();
+
         return Ok(new
         {
             totalEmpresas,
@@ -86,8 +88,94 @@ public class AdminController(NexoDbContext db, IAuditService audit, DatabaseRese
             ultimasEmpresas = ultimos.Select(ToDto).ToList(),
             ultimosTenants = ultimos.Select(ToDto).ToList(),
             falhasRecentes = falhas,
+            empresasPendentesSincronizacao = pendenciasSinc,
             statusPlataforma = "Operacional"
         });
+    }
+
+    [HttpGet("sincronizacao/pendencias")]
+    public async Task<IActionResult> ObterPendenciasSincronizacao()
+    {
+        var pendencias = await ObterEmpresasPendentesSincronizacaoAsync();
+        return Ok(pendencias);
+    }
+
+    private async Task<List<EmpresaPendenteSincronizacaoDto>> ObterEmpresasPendentesSincronizacaoAsync()
+    {
+        var tenants = await db.Tenants
+            .Include(t => t.Filiais)
+            .OrderBy(t => t.NomeFantasia)
+            .ToListAsync();
+
+        var agentes = await db.Agentes.ToListAsync();
+        var erros = await db.SincronizacaoErros
+            .OrderByDescending(e => e.DataCriacao)
+            .Take(100)
+            .ToListAsync();
+
+        var listaPendencias = new List<EmpresaPendenteSincronizacaoDto>();
+
+        foreach (var t in tenants)
+        {
+            var filiais = t.Filiais != null && t.Filiais.Count > 0
+                ? t.Filiais.ToList()
+                : new List<Filial> { new Filial { TenantId = t.Id, Codigo = "001", Nome = "Matriz", Cnpj = t.Cnpj } };
+
+            foreach (var f in filiais)
+            {
+                var ag = agentes.FirstOrDefault(a => a.TenantId == t.Id && (a.FilialId == f.Id || a.FilialId == null));
+                var ultimoErro = erros.FirstOrDefault(e => e.TenantId == t.Id)?.Mensagem;
+                var totalProds = await db.Produtos.CountAsync(p => p.TenantId == t.Id);
+
+                string statusSinc;
+                DateTime? ultimaComunicacao = ag?.UltimoHeartbeat ?? ag?.UltimaSincronizacao;
+                string motivo;
+
+                if (ag == null || f.TokenRevogado)
+                {
+                    statusSinc = "Aguardando ativação";
+                    motivo = "Sincronizador SINc ainda não foi ativado ou vinculado";
+                }
+                else if (ag.Status == "PendenteAtivacao" || (ag.UltimoHeartbeat == null && ag.UltimaSincronizacao == null))
+                {
+                    statusSinc = ag.CodigoAtivacaoUsado ? "Nunca sincronizada" : "Aguardando ativação";
+                    motivo = ag.CodigoAtivacaoUsado 
+                        ? "Agente vinculado mas nenhuma sincronização inicial realizada"
+                        : "Aguardando ativação no aplicativo SINc local";
+                }
+                else if (totalProds == 0)
+                {
+                    if (!string.IsNullOrWhiteSpace(ultimoErro))
+                    {
+                        statusSinc = "Sincronização inicial com falha";
+                        motivo = $"Falha no envio da carga inicial: {ultimoErro}";
+                    }
+                    else
+                    {
+                        statusSinc = "Sincronização inicial em andamento";
+                        motivo = "Agente comunicando, aguardando conclusão do envio dos produtos";
+                    }
+                }
+                else
+                {
+                    // Sincronização inicial concluída com sucesso!
+                    continue;
+                }
+
+                listaPendencias.Add(new EmpresaPendenteSincronizacaoDto(
+                    TenantId: t.Id,
+                    NomeEmpresa: t.NomeFantasia ?? t.RazaoSocial,
+                    Cnpj: t.Cnpj ?? "",
+                    FilialNome: f.Nome,
+                    FilialCodigo: f.Codigo,
+                    StatusSincronizacao: statusSinc,
+                    UltimaComunicacao: ultimaComunicacao,
+                    MotivoPendencia: motivo
+                ));
+            }
+        }
+
+        return listaPendencias;
     }
 
     // =========================================================================

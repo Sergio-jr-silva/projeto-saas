@@ -54,7 +54,19 @@ export interface AdminDashboard {
   ultimosTenants?: TenantSummary[];
   ultimasEmpresas?: TenantSummary[];
   falhasRecentes?: FalhaSincronizacaoRecente[];
+  empresasPendentesSincronizacao?: EmpresaPendenteSincronizacao[];
   statusPlataforma?: string;
+}
+
+export interface EmpresaPendenteSincronizacao {
+  tenantId: string;
+  nomeEmpresa: string;
+  cnpj: string;
+  filialNome?: string;
+  filialCodigo?: string;
+  statusSincronizacao: string;
+  ultimaComunicacao?: string;
+  motivoPendencia: string;
 }
 
 export interface FalhaSincronizacaoRecente {

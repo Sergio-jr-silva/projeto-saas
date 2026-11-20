@@ -146,6 +146,14 @@ interface SolicitacaoPlano {
 const fmtCurrency = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
+const parseCurrency = (val: string | number): number => {
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (!val) return 0;
+  const cleaned = val.toString().replace(/[R$\s.]/g, '').replace(',', '.');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+};
+
 export const AdminPrecificacao: React.FC = () => {
   const [aba, setAba] = useState<'empresas' | 'simulador' | 'regras' | 'solicitacoes'>('empresas');
   const [tenants, setTenants] = useState<PrecificacaoTenant[]>([]);
@@ -175,6 +183,8 @@ export const AdminPrecificacao: React.FC = () => {
     volumeUtilizacao: 'Baixo',
     desconto: 0,
     ajusteManual: 0,
+    mensalidadeFinal: 0,
+    mensalidadeManualInput: '',
     justificativa: '',
     situacaoFinanceira: 'Regular',
     proximoVencimento: '',
@@ -229,12 +239,15 @@ export const AdminPrecificacao: React.FC = () => {
 
   const abrirEdicaoEmpresa = async (t: PrecificacaoTenant) => {
     setEmpresaEditando(t);
+    const mFinal = t.mensalidadeFinal > 0 ? t.mensalidadeFinal : t.mensalidadeCalculada;
     setEditForm({
       slug: t.slug || '',
       moduloContratado: t.moduloContratado || 'Basico',
       volumeUtilizacao: t.volumeUtilizacao || 'Baixo',
       desconto: t.desconto || 0,
       ajusteManual: t.ajusteManual || 0,
+      mensalidadeFinal: mFinal,
+      mensalidadeManualInput: mFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       justificativa: t.justificativaPreco || 'Revisão comercial pelo Administrador Geral',
       situacaoFinanceira: t.situacaoFinanceira || 'Regular',
       proximoVencimento: t.proximoVencimento ? t.proximoVencimento.slice(0, 10) : '',
@@ -266,6 +279,7 @@ export const AdminPrecificacao: React.FC = () => {
         volumeUtilizacao: editForm.volumeUtilizacao,
         desconto: Number(editForm.desconto),
         ajusteManual: Number(editForm.ajusteManual),
+        mensalidadeManual: Number(editForm.mensalidadeFinal || 0),
         justificativa: editForm.justificativa,
         situacaoFinanceira: editForm.situacaoFinanceira,
         proximoVencimento: editForm.proximoVencimento ? new Date(editForm.proximoVencimento).toISOString() : null,
@@ -320,7 +334,12 @@ export const AdminPrecificacao: React.FC = () => {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Carregando módulo de precificação dinâmica SaaS...</div>;
   }
 
-  const mrrTotal = tenants.filter(t => t.status === 'Ativo').reduce((acc, t) => acc + t.mensalidadeFinal, 0);
+  const mrrTotal = tenants.filter(t => t.status === 'Ativo').reduce((acc, t) => {
+    if (empresaEditando && t.tenantId === empresaEditando.tenantId) {
+      return acc + (editForm.mensalidadeFinal || 0);
+    }
+    return acc + (t.mensalidadeFinal || 0);
+  }, 0);
 
   return (
     <div>
@@ -328,10 +347,10 @@ export const AdminPrecificacao: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)' }}>
-            Módulo Comercial & Precificação Dinâmica (R$ 50,00 a R$ 250,00)
+            Módulo Comercial & Precificação Flexível SaaS
           </h1>
           <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-            Gestão de mensalidades dinâmicas por porte e utilização real, URLs por cliente (/slug), descontos justificados e regras versionadas.
+            Gestão de mensalidades por regras ou valor manual negociado, URLs por cliente (/slug), descontos justificados e regras versionadas.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -816,7 +835,10 @@ export const AdminPrecificacao: React.FC = () => {
                   Configuração Comercial: {empresaEditando.nomeFantasia}
                 </h3>
                 <div style={{ fontSize: '12.5px', color: 'var(--text-muted)' }}>
-                  URL Oficial: <strong>https://nexoscompras.com.br/{editForm.slug}</strong> • Mensalidade Calculada: <strong>{fmtCurrency(empresaEditando.mensalidadeCalculada)}</strong>
+                  URL Oficial: <strong>https://nexoscompras.com.br/{editForm.slug}</strong> • Calculada pelas regras: <strong>{fmtCurrency(empresaEditando.mensalidadeCalculada)}</strong>
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--green)', fontWeight: 700, marginTop: '4px' }}>
+                  Total MRR da Plataforma (recalculado ao vivo): {fmtCurrency(mrrTotal)}/mês
                 </div>
               </div>
               <button onClick={() => setEmpresaEditando(null)} className="btn btn-secondary">Fechar</button>
@@ -824,6 +846,35 @@ export const AdminPrecificacao: React.FC = () => {
 
             <form onSubmit={salvarCondicoesEmpresa}>
               <div className="grid-cols-3" style={{ gap: '12px' }}>
+                <div className="form-group" style={{ gridColumn: 'span 3' }}>
+                  <label style={{ fontWeight: 700, color: 'var(--blue-primary)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Valor da Mensalidade Negociada (R$)</span>
+                    <span style={{ color: 'var(--green)', fontSize: '13px' }}>
+                      Mensalidade final a cobrar: {fmtCurrency(editForm.mensalidadeFinal || 0)}
+                    </span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '10px', fontWeight: 700, color: 'var(--text-muted)' }}>R$</span>
+                    <input
+                      type="text"
+                      style={{ paddingLeft: '38px', fontSize: '16px', fontWeight: 800, color: 'var(--blue-primary)' }}
+                      placeholder="Ex: 100,00 • 1.000,00 • 1.250,50 • 2.500,00"
+                      value={editForm.mensalidadeManualInput}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const parsed = parseCurrency(raw);
+                        setEditForm({
+                          ...editForm,
+                          mensalidadeManualInput: raw,
+                          mensalidadeFinal: parsed
+                        });
+                      }}
+                    />
+                  </div>
+                  <small style={{ color: 'var(--text-muted)', fontSize: '11.5px', marginTop: '3px', display: 'block' }}>
+                    Aceita qualquer valor monetário (sem teto). O valor informado é salvo diretamente no banco, atualiza a assinatura da empresa e recalcula o MRR ao vivo.
+                  </small>
+                </div>
                 <div className="form-group">
                   <label>Slug da URL (/slug)</label>
                   <input
