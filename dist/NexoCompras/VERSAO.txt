@@ -1,0 +1,7 @@
+Nexo Compras — Sincronizador ERP Local (SINc)
+Versão: 2.1.0-Release-OneFile
+Arquitetura: win-x64 (Self-Contained)
+Framework: .NET 9.0 Windows Desktop
+Data de Compilação: 2026-11-20
+Modo: Single-File Executable Independente (Sem console / Sem dependências externas)
+Diretório de Armazenamento Central: %ProgramData%\NexoCompras\SINc\

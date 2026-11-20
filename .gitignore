@@ -1,0 +1,50 @@
+# Diretórios de build .NET
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Dependências Node.js
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vite / Frontend build temporário
+NEXO-COMPRAS/frontend/dist/
+
+# Logs e arquivos locais do agente
+*.log
+**/logs/*.log
+**/data/*.db
+**/data/*.db-shm
+**/data/*.db-wal
+**/data/*.json
+**/data/*.dat
+
+# Arquivos de IDE e Sistema
+.vs/
+.vscode/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Variáveis de ambiente sensíveis
+.env
+.env.local
+.env.*.local
+
+# Bancos de dados locais pesados
+*.FDB
+*.fdb
+*.FBK
+*.fbk
+*.db
+
+# Scratch e temporários
+scratch/
+.system_generated/
+
