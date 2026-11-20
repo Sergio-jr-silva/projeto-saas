@@ -1,0 +1,92 @@
+services:
+  # ==========================================
+  # 1. Banco de Dados PostgreSQL 16
+  # ==========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: nexo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-nexo}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - nexo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-nexo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - nexo-network
+
+  # ==========================================
+  # 2. Backend ASP.NET Core 9 (Nexo.Api)
+  # ==========================================
+  backend:
+    build:
+      context: ./NEXO-COMPRAS/backend
+      dockerfile: Dockerfile
+    container_name: nexo-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-nexo};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres};
+      - Jwt__Secret=${JWT_SECRET:-NexoComprasSaaSSecretKey2026SuperSecureKeyWith32CharsMin!}
+      - Jwt__Issuer=${JWT_ISSUER:-https://nexocompras.com.br}
+      - Jwt__Audience=${JWT_AUDIENCE:-https://app.nexocompras.com.br}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:80,http://127.0.0.1:5173}
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    volumes:
+      - nexo_backend_storage:/app/storage
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - nexo-network
+
+  # ==========================================
+  # 3. Frontend React / Vite / Nginx
+  # ==========================================
+  frontend:
+    build:
+      context: ./NEXO-COMPRAS/frontend
+      dockerfile: Dockerfile
+    container_name: nexo-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:5000/api}
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - nexo-network
+
+networks:
+  nexo-network:
+    driver: bridge
+
+volumes:
+  nexo_postgres_data:
+    driver: local
+  nexo_backend_storage:
+    driver: local
