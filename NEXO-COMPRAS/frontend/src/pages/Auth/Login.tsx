@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
 import { Lock, Mail, ArrowRight, Building2, AlertTriangle, ShieldAlert } from 'lucide-react';
@@ -262,14 +262,6 @@ export const Login: React.FC = () => {
               <ArrowRight size={16} />
             </button>
           </form>
-        </div>
-
-        {/* ONBOARDING */}
-        <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '14px', color: 'var(--text-muted)' }}>
-          Sua empresa ainda não utiliza o Nexo Compras?{' '}
-          <Link to="/cadastro" style={{ color: 'var(--blue-primary)', fontWeight: 600 }}>
-            Criar conta (Teste Grátis)
-          </Link>
         </div>
       </div>
     </div>
