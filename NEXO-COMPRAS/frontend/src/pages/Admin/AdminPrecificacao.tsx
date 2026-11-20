@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Link2,
   ShieldCheck,
-  Bell
+  Bell,
+  Trash2
 } from 'lucide-react';
 
 interface SimulacaoResponse {
@@ -297,6 +298,43 @@ export const AdminPrecificacao: React.FC = () => {
     }
   };
 
+  const handleExcluirEmpresa = async (t: PrecificacaoTenant) => {
+    const nome = t.nomeFantasia || t.slug;
+    const confirmacao1 = window.confirm(
+      `⚠️ ATENÇÃO: Deseja realmente excluir permanentemente a empresa "${nome}"?\n\n` +
+      `Isso irá apagar DEFINITIVAMENTE todo o banco de dados dela:\n` +
+      `• Todos os Produtos e Estoques\n` +
+      `• Todos os Fornecedores\n` +
+      `• Todas as Cotações e Pedidos de Compra\n` +
+      `• Todas as Ordens de Serviço\n` +
+      `• Todas as Filiais e Sincronizadores SINc\n` +
+      `• Todos os Usuários vinculados a ela\n\n` +
+      `Esta ação NÃO pode ser desfeita. Deseja prosseguir?`
+    );
+
+    if (!confirmacao1) return;
+
+    const confirmacao2 = window.prompt(
+      `Para confirmar a exclusão completa, digite o nome da empresa abaixo:\n"${nome}"`
+    );
+
+    if (confirmacao2?.trim().toLowerCase() !== nome.trim().toLowerCase()) {
+      alert('Exclusão cancelada. O nome digitado não confere.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res: any = await api.delete(`/admin/tenants/${t.tenantId}`);
+      alert(res?.mensagem || `A empresa "${nome}" e todo o banco de dados foram excluídos com sucesso!`);
+      await carregarTudo();
+    } catch (err: any) {
+      alert('Erro ao excluir empresa: ' + (err.message || 'Falha na requisição.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const salvarNovaVersaoRegras = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!configForm) return;
@@ -474,13 +512,23 @@ export const AdminPrecificacao: React.FC = () => {
                       </span>
                     </td>
                     <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                      <button
-                        onClick={() => abrirEdicaoEmpresa(t)}
-                        className="btn btn-secondary"
-                        style={{ padding: '5px 10px', fontSize: '12px' }}
-                      >
-                        <Edit3 size={13} /> Gerenciar Preço & Slug
-                      </button>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                        <button
+                          onClick={() => abrirEdicaoEmpresa(t)}
+                          className="btn btn-secondary"
+                          style={{ padding: '5px 10px', fontSize: '12px' }}
+                        >
+                          <Edit3 size={13} /> Gerenciar Preço & Slug
+                        </button>
+                        <button
+                          onClick={() => handleExcluirEmpresa(t)}
+                          className="btn btn-danger"
+                          style={{ padding: '5px 8px', fontSize: '12px' }}
+                          title="Excluir permanentemente empresa e todo o banco de dados"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -285,6 +285,109 @@ public class AdminController(NexoDbContext db, IAuditService audit, DatabaseRese
         return Ok(new { mensagem = $"Endereço da empresa atualizado para '/{t.Slug}'.", slug = t.Slug });
     }
 
+    [HttpDelete("tenants/{id:guid}")]
+    public async Task<IActionResult> ExcluirEmpresa(Guid id)
+    {
+        var tenant = await db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == id);
+        if (tenant == null)
+            return NotFound(new { erro = "Empresa não encontrada no sistema." });
+
+        var nomeFantasia = tenant.NomeFantasia ?? tenant.RazaoSocial;
+        var cnpj = tenant.Cnpj;
+
+        // Inicia transação única para garantir atomicidade total
+        await using var tx = await db.Database.BeginTransactionAsync();
+        try
+        {
+            // 1. Itens e Anexos de Cotação de Mercadorias
+            await db.AnexosResposta.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.RespostaCotacaoItens.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.RespostasCotacao.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.AcessosFornecedor.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.CotacaoFornecedores.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.CotacaoItens.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+
+            // 2. Pedidos de Compra (respeitando FK de produtos e fornecedores)
+            await db.PedidoCompraItens.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.PedidosCompra.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+
+            // 3. Cotações de Mercadorias
+            await db.Cotacoes.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+
+            // 4. Serviços e Ordens de Serviço
+            await db.PropostaServicoEtapas.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.PropostasServico.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.AcessosFornecedorServico.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.OrdensServico.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.AtividadesServico.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.FornecedoresServico.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.AnexosServico.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.CotacoesServico.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+
+            // 5. Transferências e Estoques
+            await db.SolicitacaoTransferenciaItens.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.SolicitacoesTransferencia.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.EstoquesFilial.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.HistoricoPrecos.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+
+            // 6. Catálogo de Produtos e Fornecedores
+            await db.Produtos.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.Fornecedores.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+
+            // 7. Financeiro, Precificação e Assinaturas
+            await db.TransacoesPagamento.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.HistoricosComerciaisTenant.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.SolicitacoesAlteracaoPlano.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.Faturas.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.Assinaturas.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+
+            // 8. Sincronização, Agentes e Logs
+            await db.SincronizacaoErros.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.Sincronizacoes.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.Agentes.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.LogsAuditoria.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+
+            // 9. Usuários e Tokens da Empresa (preservando o MasterEmail se porventura estivesse vinculado)
+            var userIds = await db.Usuarios.IgnoreQueryFilters()
+                .Where(u => u.TenantId == id)
+                .Select(u => u.Id)
+                .ToListAsync();
+
+            if (userIds.Count > 0)
+            {
+                await db.RefreshTokens.IgnoreQueryFilters()
+                    .Where(r => userIds.Contains(r.UsuarioId))
+                    .ExecuteDeleteAsync();
+
+                await db.Usuarios.IgnoreQueryFilters()
+                    .Where(u => u.TenantId == id && u.Email != DatabaseResetService.MasterEmail)
+                    .ExecuteDeleteAsync();
+            }
+
+            // 10. Filiais e Configurações
+            await db.Filiais.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+            await db.ConfiguracoesTenant.IgnoreQueryFilters().Where(x => x.TenantId == id).ExecuteDeleteAsync();
+
+            // 11. O próprio Tenant
+            await db.Tenants.IgnoreQueryFilters().Where(x => x.Id == id).ExecuteDeleteAsync();
+
+            await tx.CommitAsync();
+
+            audit.Add("EmpresaExcluida", "Tenant", id.ToString(), new { nomeFantasia, cnpj }, id);
+
+            return Ok(new
+            {
+                sucesso = true,
+                mensagem = $"A empresa '{nomeFantasia}' e todos os seus dados vinculados (produtos, estoque, fornecedores, cotações, pedidos, filiais e usuários) foram excluídos permanentemente com sucesso."
+            });
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync();
+            return StatusCode(500, new { erro = $"Falha ao excluir a empresa: {ex.Message}" });
+        }
+    }
+
     // =========================================================================
     // SEÇÃO B / 4 / 8: Cadastro Completo de Empresa (Wizard em 5 Etapas)
     // =========================================================================
