@@ -392,10 +392,6 @@ html, body, #root {
   overflow-x: hidden;
 }
 
-.hide-on-mobile {
-  display: inline-flex;
-}
-
 @media (max-width: 768px) {
   .hide-on-mobile {
     display: none !important;
