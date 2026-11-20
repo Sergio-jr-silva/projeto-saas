@@ -293,7 +293,7 @@ export const Filiais: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: '1280px', margin: '0 auto' }}>
+    <div className="page-container-responsive" style={{ padding: '24px 32px', maxWidth: '1280px', margin: '0 auto' }}>
       {/* CABEÇALHO */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
         <div>
@@ -321,7 +321,8 @@ export const Filiais: React.FC = () => {
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px'
+            gap: '6px',
+            minHeight: '42px'
           }}
         >
           <Plus size={16} /> Nova Filial
@@ -329,7 +330,7 @@ export const Filiais: React.FC = () => {
       </div>
 
       {/* TABS NAVEGAÇÃO */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', marginBottom: '24px' }}>
+      <div className="horizontal-tabs-scroll" style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', marginBottom: '24px' }}>
         <button
           onClick={() => setTabAtiva('filiais')}
           style={{
@@ -342,7 +343,8 @@ export const Filiais: React.FC = () => {
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: '8px',
+            whiteSpace: 'nowrap'
           }}
         >
           <Store size={16} /> Unidades e Filiais ({filiais.length})
@@ -359,7 +361,8 @@ export const Filiais: React.FC = () => {
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: '8px',
+            whiteSpace: 'nowrap'
           }}
         >
           <Layers size={16} /> Estoque Individual por Loja
@@ -376,7 +379,8 @@ export const Filiais: React.FC = () => {
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: '8px',
+            whiteSpace: 'nowrap'
           }}
         >
           <ArrowRightLeft size={16} /> Transferências Internas
@@ -393,7 +397,8 @@ export const Filiais: React.FC = () => {
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: '8px',
+            whiteSpace: 'nowrap'
           }}
         >
           <BarChart3 size={16} /> Relatório Consolidado da Rede
@@ -408,73 +413,129 @@ export const Filiais: React.FC = () => {
               Nenhuma filial cadastrada além da unidade matriz padrão.
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                  <th style={{ padding: '12px 16px' }}>CÓDIGO</th>
-                  <th style={{ padding: '12px 16px' }}>NOME DA FILIAL / UNIDADE</th>
-                  <th style={{ padding: '12px 16px' }}>CNPJ</th>
-                  <th style={{ padding: '12px 16px' }}>TOKEN SINc</th>
-                  <th style={{ padding: '12px 16px' }}>LOCALIZAÇÃO</th>
-                  <th style={{ padding: '12px 16px' }}>CONEXÃO / AGENTE</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>SITUAÇÃO</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              {/* TABELA DESKTOP */}
+              <div className="table-container desktop-table-view">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13.5px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid var(--border)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '12px 16px' }}>CÓDIGO</th>
+                      <th style={{ padding: '12px 16px' }}>NOME DA FILIAL / UNIDADE</th>
+                      <th style={{ padding: '12px 16px' }}>CNPJ</th>
+                      <th style={{ padding: '12px 16px' }}>TOKEN SINc</th>
+                      <th style={{ padding: '12px 16px' }}>LOCALIZAÇÃO</th>
+                      <th style={{ padding: '12px 16px' }}>CONEXÃO / AGENTE</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>SITUAÇÃO</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filiais.map(f => (
+                      <tr key={f.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                        <td style={{ padding: '12px 16px', fontWeight: 700 }}>
+                          <span style={{ backgroundColor: '#EEF2FF', color: 'var(--blue-primary)', padding: '2px 8px', borderRadius: '4px' }}>
+                            {f.codigo}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 16px', fontWeight: 600 }}>{f.nome}</td>
+                        <td style={{ padding: '12px 16px' }}>{f.cnpj || '—'}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          {f.token ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <code style={{ fontSize: '11px', backgroundColor: '#F1F5F9', padding: '3px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
+                                {f.token}
+                              </code>
+                              <button
+                                onClick={() => copiarToken(f.token!)}
+                                title="Copiar Token desta filial para o sincronizador SINc"
+                                style={{
+                                  border: 'none',
+                                  background: 'none',
+                                  cursor: 'pointer',
+                                  padding: '2px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  color: copiadoToken === f.token ? '#16A34A' : 'var(--blue-primary)'
+                                }}
+                              >
+                                {copiadoToken === f.token ? <Check size={14} /> : <Copy size={14} />}
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>{f.cidade ? `${f.cidade} / ${f.uf}` : '—'}</td>
+                        <td style={{ padding: '12px 16px' }}>
+                          {f.agenteNome ? (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#059669', fontSize: '12px', fontWeight: 600 }}>
+                              <Server size={13} /> {f.agenteNome}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Nexo Cloud Integrado</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                          <span style={{ backgroundColor: f.ativa ? '#DCFCE7' : '#FEE2E2', color: f.ativa ? '#166534' : '#991B1B', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 700 }}>
+                            {f.ativa ? '● ATIVA' : '● INATIVA'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* CARDS MOBILE FILIAIS */}
+              <div className="mobile-card-view" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {filiais.map(f => (
-                  <tr key={f.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                    <td style={{ padding: '12px 16px', fontWeight: 700 }}>
-                      <span style={{ backgroundColor: '#EEF2FF', color: 'var(--blue-primary)', padding: '2px 8px', borderRadius: '4px' }}>
+                  <div
+                    key={f.id}
+                    style={{
+                      backgroundColor: '#FFFFFF',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ backgroundColor: '#EEF2FF', color: 'var(--blue-primary)', padding: '2px 8px', borderRadius: '4px', fontWeight: 800, fontSize: '12.5px' }}>
                         {f.codigo}
                       </span>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontWeight: 600 }}>{f.nome}</td>
-                    <td style={{ padding: '12px 16px' }}>{f.cnpj || '—'}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      {f.token ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <code style={{ fontSize: '11px', backgroundColor: '#F1F5F9', padding: '3px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
-                            {f.token}
-                          </code>
-                          <button
-                            onClick={() => copiarToken(f.token!)}
-                            title="Copiar Token desta filial para o sincronizador SINc"
-                            style={{
-                              border: 'none',
-                              background: 'none',
-                              cursor: 'pointer',
-                              padding: '2px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              color: copiadoToken === f.token ? '#16A34A' : 'var(--blue-primary)'
-                            }}
-                          >
-                            {copiadoToken === f.token ? <Check size={14} /> : <Copy size={14} />}
-                          </button>
-                        </div>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>—</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>{f.cidade ? `${f.cidade} / ${f.uf}` : '—'}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      {f.agenteNome ? (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#059669', fontSize: '12px', fontWeight: 600 }}>
-                          <Server size={13} /> {f.agenteNome}
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Nexo Cloud Integrado</span>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      <span style={{ backgroundColor: f.ativa ? '#DCFCE7' : '#FEE2E2', color: f.ativa ? '#166534' : '#991B1B', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 700 }}>
+                      <span style={{ backgroundColor: f.ativa ? '#DCFCE7' : '#FEE2E2', color: f.ativa ? '#166534' : '#991B1B', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 700 }}>
                         {f.ativa ? '● ATIVA' : '● INATIVA'}
                       </span>
-                    </td>
-                  </tr>
+                    </div>
+
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-main)' }}>{f.nome}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        CNPJ: {f.cnpj || 'Não informado'} • {f.cidade ? `${f.cidade} / ${f.uf}` : 'Sem cidade'}
+                      </div>
+                    </div>
+
+                    {f.token && (
+                      <div style={{ padding: '8px 10px', backgroundColor: 'var(--bg-page)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block' }}>TOKEN SINc</span>
+                          <code style={{ fontSize: '11.5px', fontFamily: 'monospace', fontWeight: 600 }}>{f.token}</code>
+                        </div>
+                        <button
+                          onClick={() => copiarToken(f.token!)}
+                          className="btn btn-secondary"
+                          style={{ minHeight: '36px', padding: '4px 10px', fontSize: '11.5px' }}
+                        >
+                          {copiadoToken === f.token ? <Check size={14} color="#16A34A" /> : <Copy size={14} />} Copiar
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -761,12 +822,12 @@ export const Filiais: React.FC = () => {
       {/* MODAL NOVA FILIAL */}
       {modalNovaFilial && (
         <div className="modal-overlay">
-          <div className="modal-content-responsive">
+          <div className="modal-content-responsive modal-responsive-card">
             <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 16px' }}>
               Cadastrar Nova Filial
             </h3>
             <form onSubmit={handleSalvarFilial}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-grid-responsive-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '12px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>CÓDIGO *</label>
                   <input
@@ -774,17 +835,17 @@ export const Filiais: React.FC = () => {
                     placeholder="ex: FIL-02"
                     value={formFilial.codigo}
                     onChange={e => setFormFilial(prev => ({ ...prev, codigo: e.target.value }))}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                   />
                 </div>
-                <div style={{ gridColumn: 'span 2' }}>
+                <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>NOME DA FILIAL *</label>
                   <input
                     required
                     placeholder="ex: SuperMix Filial Boa Viagem"
                     value={formFilial.nome}
                     onChange={e => setFormFilial(prev => ({ ...prev, nome: e.target.value }))}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                   />
                 </div>
               </div>
@@ -803,18 +864,18 @@ export const Filiais: React.FC = () => {
                   placeholder="Av. Engenheiro Domingos Ferreira, 1200"
                   value={formFilial.endereco}
                   onChange={e => setFormFilial(prev => ({ ...prev, endereco: e.target.value }))}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-grid-responsive-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>CIDADE</label>
                   <input
                     placeholder="Recife"
                     value={formFilial.cidade}
                     onChange={e => setFormFilial(prev => ({ ...prev, cidade: e.target.value }))}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                   />
                 </div>
                 <div>
@@ -824,19 +885,19 @@ export const Filiais: React.FC = () => {
                     placeholder="PE"
                     value={formFilial.uf}
                     onChange={e => setFormFilial(prev => ({ ...prev, uf: e.target.value }))}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              <div className="form-grid-responsive-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '16px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>RESPONSÁVEL</label>
                   <input
                     placeholder="Nome do gerente"
                     value={formFilial.responsavel}
                     onChange={e => setFormFilial(prev => ({ ...prev, responsavel: e.target.value }))}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                   />
                 </div>
                 <div>
@@ -845,22 +906,22 @@ export const Filiais: React.FC = () => {
                     placeholder="(81) 3333-0000"
                     value={formFilial.telefone}
                     onChange={e => setFormFilial(prev => ({ ...prev, telefone: e.target.value }))}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => setModalNovaFilial(false)}
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: '#FFF', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: '#FFF', cursor: 'pointer', minHeight: '42px', fontWeight: 600 }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--blue-primary)', color: '#FFF', fontWeight: 700, cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--blue-primary)', color: '#FFF', fontWeight: 700, cursor: 'pointer', minHeight: '42px' }}
                 >
                   Salvar Filial
                 </button>
@@ -872,19 +933,19 @@ export const Filiais: React.FC = () => {
 
       {/* MODAL NOVA TRANSFERÊNCIA */}
       {modalNovaTransf && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', width: '90%', maxWidth: '480px', padding: '24px' }}>
+        <div className="modal-overlay">
+          <div className="modal-content-responsive modal-responsive-card" style={{ maxWidth: '480px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 16px' }}>
               Solicitar Transferência Interna
             </h3>
             <form onSubmit={handleCriarTransferencia}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+              <div className="form-grid-responsive-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '12px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>ORIGEM (FORNECE)</label>
                   <select
                     value={formTransf.origemId}
                     onChange={e => setFormTransf(prev => ({ ...prev, origemId: e.target.value }))}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                   >
                     {filiais.map(f => (
                       <option key={f.id} value={f.id}>{f.codigo} — {f.nome}</option>
@@ -896,7 +957,7 @@ export const Filiais: React.FC = () => {
                   <select
                     value={formTransf.destinoId}
                     onChange={e => setFormTransf(prev => ({ ...prev, destinoId: e.target.value }))}
-                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                   >
                     {filiais.map(f => (
                       <option key={f.id} value={f.id}>{f.codigo} — {f.nome}</option>
@@ -910,7 +971,7 @@ export const Filiais: React.FC = () => {
                 <select
                   value={formTransf.produtoId}
                   onChange={e => setFormTransf(prev => ({ ...prev, produtoId: e.target.value }))}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                 >
                   {produtosDisponiveis.map(p => (
                     <option key={p.id} value={p.id}>{p.descricao} ({p.unidade})</option>
@@ -926,7 +987,7 @@ export const Filiais: React.FC = () => {
                   required
                   value={formTransf.quantidade}
                   onChange={e => setFormTransf(prev => ({ ...prev, quantidade: Number(e.target.value) }))}
-                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px' }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px', marginTop: '4px', minHeight: '40px' }}
                 />
               </div>
 
@@ -941,19 +1002,19 @@ export const Filiais: React.FC = () => {
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => setModalNovaTransf(false)}
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: '#FFF', cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: '#FFF', cursor: 'pointer', minHeight: '42px', fontWeight: 600 }}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--blue-primary)', color: '#FFF', fontWeight: 700, cursor: 'pointer' }}
+                  style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', backgroundColor: 'var(--blue-primary)', color: '#FFF', fontWeight: 700, cursor: 'pointer', minHeight: '42px' }}
                 >
-                  Enviar Solicitação
+                  Confirmar Transferência
                 </button>
               </div>
             </form>

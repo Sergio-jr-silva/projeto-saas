@@ -109,20 +109,20 @@ export const CotacaoDetalhePage: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button
             onClick={() => {
               const baseUrl = api.getBaseUrl();
               window.open(`${baseUrl}/cotacoes/${cotacao.id}/pdf`, '_blank');
             }}
             className="btn btn-secondary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', minHeight: '40px' }}
           >
             <Printer size={16} /> Imprimir Orçamento (ProSyst)
           </button>
 
           {cotacao.status !== 'Cancelada' && cotacao.status !== 'Aprovada' && (
-            <button onClick={handleCancelarCotacao} className="btn btn-secondary" style={{ color: 'var(--red)' }}>
+            <button onClick={handleCancelarCotacao} className="btn btn-secondary" style={{ color: 'var(--red)', minHeight: '40px' }}>
               <XCircle size={16} /> Cancelar Cotação
             </button>
           )}
@@ -131,7 +131,7 @@ export const CotacaoDetalhePage: React.FC = () => {
             onClick={() => navigate(`/cotacoes/${cotacao.id}/comparacao`)}
             disabled={!temRespostas}
             className="btn btn-primary"
-            style={{ padding: '8px 16px' }}
+            style={{ padding: '8px 16px', minHeight: '40px' }}
           >
             <BarChart2 size={16} /> Comparar Propostas Comerciais
           </button>
@@ -155,7 +155,9 @@ export const CotacaoDetalhePage: React.FC = () => {
         <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px', color: 'var(--text-main)' }}>
           Produtos Solicitados ({cotacao.itens.length})
         </h2>
-        <div className="table-container">
+        
+        {/* TABELA DESKTOP */}
+        <div className="table-container desktop-table-view">
           <table>
             <thead>
               <tr>
@@ -185,6 +187,32 @@ export const CotacaoDetalhePage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* CARDS MOBILE */}
+        <div className="mobile-card-view" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {cotacao.itens.map((it) => (
+            <div
+              key={it.id}
+              style={{
+                backgroundColor: 'var(--bg-page)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '12px'
+              }}
+            >
+              <div style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '14px' }}>
+                {it.descricao}
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: '3px 0' }}>
+                Código: {it.codigo || '—'} • Unidade: {it.unidade}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '12.5px', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
+                <span>Solicitado: <strong style={{ color: 'var(--blue-primary)' }}>{it.quantidade} {it.unidade}</strong></span>
+                <span>Último custo: <strong>R$ {it.ultimoCustoRef.toFixed(2).replace('.', ',')}</strong></span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* FORNECEDORES CONVIDADOS & GESTÃO DE ACESSO */}
@@ -193,7 +221,8 @@ export const CotacaoDetalhePage: React.FC = () => {
           Fornecedores Convidados ({cotacao.fornecedores.length})
         </h2>
 
-        <div className="table-container">
+        {/* TABELA DESKTOP */}
+        <div className="table-container desktop-table-view">
           <table>
             <thead>
               <tr>
@@ -260,6 +289,55 @@ export const CotacaoDetalhePage: React.FC = () => {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* CARDS MOBILE FORNECEDORES */}
+        <div className="mobile-card-view" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {cotacao.fornecedores.map((f) => {
+            const acesso = f.acesso;
+            return (
+              <div
+                key={f.id}
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--text-main)' }}>{f.nome}</div>
+                  {f.respondida ? (
+                    <span className="badge badge-green">Proposta Enviada</span>
+                  ) : acesso && acesso.visualizacoes > 0 ? (
+                    <span className="badge badge-yellow">Visualizada</span>
+                  ) : (
+                    <span className="badge badge-blue">Aguardando</span>
+                  )}
+                </div>
+
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                  {f.email || 'Sem e-mail'} {f.whatsapp ? `• ${f.whatsapp}` : ''}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px', padding: '6px 10px', backgroundColor: 'var(--bg-page)', borderRadius: 'var(--radius-sm)', marginBottom: '10px' }}>
+                  <span>Acessos: <strong>{acesso?.visualizacoes || 0}</strong></span>
+                  <span>Segurança: {acesso?.bloqueado ? <strong style={{ color: 'var(--red)' }}>Bloqueado</strong> : <strong style={{ color: 'var(--green)' }}>Ativo</strong>}</span>
+                </div>
+
+                <button
+                  onClick={() => handleGerarNovoCodigo(f.id)}
+                  disabled={gerandoCodigoId === f.id || cotacao.status === 'Cancelada'}
+                  className="btn btn-secondary"
+                  style={{ width: '100%', minHeight: '40px', fontSize: '12.5px' }}
+                >
+                  <RefreshCw size={14} className={gerandoCodigoId === f.id ? 'spin' : ''} />
+                  Gerar Novo Código de Acesso
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 

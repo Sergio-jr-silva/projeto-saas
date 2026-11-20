@@ -146,9 +146,9 @@ export const Pedidos: React.FC = () => {
   const recebidos = pedidos.filter(p => p.status === 'Recebido').length;
 
   return (
-    <div style={{ padding: '24px 32px' }}>
+    <div className="page-container-responsive" style={{ padding: '24px 32px' }}>
       {/* HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 6px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <FileCheck color="var(--blue-primary)" size={28} />
@@ -171,7 +171,8 @@ export const Pedidos: React.FC = () => {
             fontSize: '13px',
             fontWeight: 600,
             cursor: 'pointer',
-            color: 'var(--text-main)'
+            color: 'var(--text-main)',
+            minHeight: '42px'
           }}
         >
           <RefreshCw size={16} />
@@ -180,7 +181,7 @@ export const Pedidos: React.FC = () => {
       </div>
 
       {/* METRIC CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+      <div className="kpi-grid-responsive" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div style={{ background: '#FFFFFF', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '16px 20px' }}>
           <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total de Pedidos</div>
           <div style={{ fontSize: '26px', fontWeight: 800, color: 'var(--text-main)', marginTop: '4px' }}>{pedidos.length}</div>
@@ -204,7 +205,7 @@ export const Pedidos: React.FC = () => {
       {/* FILTROS E BUSCA */}
       <div style={{ background: '#FFFFFF', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '16px 20px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '260px', position: 'relative' }}>
+          <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
             <input
               type="text"
@@ -218,7 +219,8 @@ export const Pedidos: React.FC = () => {
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-sm)',
                 fontSize: '14px',
-                outline: 'none'
+                outline: 'none',
+                minHeight: '42px'
               }}
             />
           </div>
@@ -232,7 +234,8 @@ export const Pedidos: React.FC = () => {
               padding: '9px 18px',
               fontSize: '13.5px',
               fontWeight: 600,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              minHeight: '42px'
             }}
           >
             Buscar
@@ -240,7 +243,7 @@ export const Pedidos: React.FC = () => {
         </div>
 
         {/* BOTOES DE STATUS */}
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+        <div className="horizontal-tabs-scroll" style={{ display: 'flex', gap: '6px' }}>
           {[
             { id: 'todos', label: 'Todos os Status' },
             { id: 'Criado', label: 'Rascunho / Criado' },
@@ -256,7 +259,7 @@ export const Pedidos: React.FC = () => {
               key={f.id}
               onClick={() => setFiltroStatus(f.id)}
               className={`btn ${filtroStatus === f.id ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '12.5px', padding: '6px 12px' }}
+              style={{ fontSize: '12.5px', padding: '6px 12px', whiteSpace: 'nowrap' }}
             >
               {f.label}
             </button>
@@ -277,140 +280,240 @@ export const Pedidos: React.FC = () => {
             </div>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Pedido</th>
-                <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Fornecedor</th>
-                <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Condição / Prazo</th>
-                <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Valor Total</th>
-                <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</th>
-                <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pedidos.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    Nenhum pedido de compra encontrado para os filtros selecionados.
-                  </td>
-                </tr>
-              ) : (
-                (() => {
-                  const totalPaginas = Math.max(1, Math.ceil(pedidos.length / ITENS_POR_PAGINA));
-                  const indiceInicial = (paginaAtual - 1) * ITENS_POR_PAGINA;
-                  const pedidosPaginados = pedidos.slice(indiceInicial, indiceInicial + ITENS_POR_PAGINA);
+          <>
+            {/* TABELA DESKTOP */}
+            <div className="table-container desktop-table-view">
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Pedido</th>
+                    <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Fornecedor</th>
+                    <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Condição / Prazo</th>
+                    <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Valor Total</th>
+                    <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Status</th>
+                    <th style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', textAlign: 'right' }}>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const totalPaginas = Math.max(1, Math.ceil(pedidos.length / ITENS_POR_PAGINA));
+                    const indiceInicial = (paginaAtual - 1) * ITENS_POR_PAGINA;
+                    const pedidosPaginados = pedidos.slice(indiceInicial, indiceInicial + ITENS_POR_PAGINA);
 
-                  return pedidosPaginados.map((p) => {
-                    const st = STATUS_CONFIG[p.status] || { label: p.status, bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
-                    return (
-                      <tr key={p.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                        <td style={{ padding: '14px 20px' }}>
-                          <div style={{ fontWeight: 800, color: 'var(--blue-primary)', fontSize: '14px' }}>{p.numero}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    return pedidosPaginados.map((p) => {
+                      const st = STATUS_CONFIG[p.status] || { label: p.status, bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+                      return (
+                        <tr key={p.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                          <td style={{ padding: '14px 20px' }}>
+                            <div style={{ fontWeight: 800, color: 'var(--blue-primary)', fontSize: '14px' }}>{p.numero}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                              {new Date(p.dataCriacao).toLocaleDateString('pt-BR')}
+                              {p.cotacaoNumero && <span> • Cot. {p.cotacaoNumero}</span>}
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 20px' }}>
+                            <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '13.5px' }}>{p.fornecedorNome}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>CNPJ: {p.fornecedorCnpj}</div>
+                          </td>
+                          <td style={{ padding: '14px 20px' }}>
+                            <div style={{ fontSize: '13px', color: 'var(--text-main)' }}>{p.condicaoPagamento}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Prazo: {p.prazoEntregaDias} dias</div>
+                          </td>
+                          <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                            <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '14px' }}>
+                              R$ {p.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{p.qtdItens} item(ns)</div>
+                          </td>
+                          <td style={{ padding: '14px 20px' }}>
+                            <span
+                              style={{
+                                display: 'inline-block',
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                backgroundColor: st.bg,
+                                color: st.text,
+                                border: `1px solid ${st.border}`
+                              }}
+                            >
+                              {st.label}
+                            </span>
+                          </td>
+                          <td style={{ padding: '14px 20px', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => handleCopiarLinkPedido(p.id, p.numero)}
+                                title="Copiar link do pedido para enviar ao fornecedor via WhatsApp ou E-mail"
+                                style={{
+                                  background: copiadoPedidoId === p.id ? '#DCFCE7' : '#FFFFFF',
+                                  border: copiadoPedidoId === p.id ? '1px solid #86EFAC' : '1px solid var(--border)',
+                                  borderRadius: '6px',
+                                  padding: '6px 10px',
+                                  cursor: 'pointer',
+                                  color: copiadoPedidoId === p.id ? '#166534' : 'var(--blue-primary)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '12px',
+                                  fontWeight: 600
+                                }}
+                              >
+                                {copiadoPedidoId === p.id ? '✓ Link Copiado' : '🔗 Link Fornecedor'}
+                              </button>
+                              <button
+                                onClick={() => handleImprimir(p.id)}
+                                title="Imprimir Pedido (PDF)"
+                                style={{
+                                  background: '#FFFFFF',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: '6px',
+                                  padding: '6px 10px',
+                                  cursor: 'pointer',
+                                  color: '#475569',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '12px',
+                                  fontWeight: 600
+                                }}
+                              >
+                                <Printer size={14} />
+                                PDF
+                              </button>
+                              <button
+                                onClick={() => abrirDetalhes(p.id)}
+                                style={{
+                                  backgroundColor: 'var(--blue-primary)',
+                                  color: '#FFFFFF',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  padding: '6px 12px',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                Acompanhar
+                                <ChevronRight size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+
+            {/* CARDS MOBILE PEDIDOS */}
+            <div className="mobile-card-view" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {(() => {
+                const indiceInicial = (paginaAtual - 1) * ITENS_POR_PAGINA;
+                const pedidosPaginados = pedidos.slice(indiceInicial, indiceInicial + ITENS_POR_PAGINA);
+
+                return pedidosPaginados.map((p) => {
+                  const st = STATUS_CONFIG[p.status] || { label: p.status, bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' };
+                  return (
+                    <div
+                      key={p.id}
+                      style={{
+                        backgroundColor: '#FFFFFF',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '10px',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontWeight: 800, color: 'var(--blue-primary)', fontSize: '15px' }}>{p.numero}</span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginLeft: '8px' }}>
                             {new Date(p.dataCriacao).toLocaleDateString('pt-BR')}
-                            {p.cotacaoNumero && <span> • Cot. {p.cotacaoNumero}</span>}
-                          </div>
-                        </td>
-                        <td style={{ padding: '14px 20px' }}>
-                          <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '13.5px' }}>{p.fornecedorNome}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>CNPJ: {p.fornecedorCnpj}</div>
-                        </td>
-                        <td style={{ padding: '14px 20px' }}>
-                          <div style={{ fontSize: '13px', color: 'var(--text-main)' }}>{p.condicaoPagamento}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Prazo: {p.prazoEntregaDias} dias</div>
-                        </td>
-                        <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                          <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '14px' }}>
-                            R$ {p.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{p.qtdItens} item(ns)</div>
-                        </td>
-                        <td style={{ padding: '14px 20px' }}>
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              padding: '4px 10px',
-                              borderRadius: '12px',
-                              fontSize: '11.5px',
-                              fontWeight: 700,
-                              backgroundColor: st.bg,
-                              color: st.text,
-                              border: `1px solid ${st.border}`
-                            }}
-                          >
-                            {st.label}
                           </span>
-                        </td>
-                        <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                            <button
-                              onClick={() => handleCopiarLinkPedido(p.id, p.numero)}
-                              title="Copiar link do pedido para enviar ao fornecedor via WhatsApp ou E-mail"
-                              style={{
-                                background: copiadoPedidoId === p.id ? '#DCFCE7' : '#FFFFFF',
-                                border: copiadoPedidoId === p.id ? '1px solid #86EFAC' : '1px solid var(--border)',
-                                borderRadius: '6px',
-                                padding: '6px 10px',
-                                cursor: 'pointer',
-                                color: copiadoPedidoId === p.id ? '#166534' : 'var(--blue-primary)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontSize: '12px',
-                                fontWeight: 600
-                              }}
-                            >
-                              {copiadoPedidoId === p.id ? '✓ Link Copiado' : '🔗 Link Fornecedor'}
-                            </button>
-                            <button
-                              onClick={() => handleImprimir(p.id)}
-                              title="Imprimir Pedido (PDF)"
-                              style={{
-                                background: '#FFFFFF',
-                                border: '1px solid var(--border)',
-                                borderRadius: '6px',
-                                padding: '6px 10px',
-                                cursor: 'pointer',
-                                color: '#475569',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                fontSize: '12px',
-                                fontWeight: 600
-                              }}
-                            >
-                              <Printer size={14} />
-                              PDF
-                            </button>
-                            <button
-                              onClick={() => abrirDetalhes(p.id)}
-                              style={{
-                                backgroundColor: 'var(--blue-primary)',
-                                color: '#FFFFFF',
-                                border: 'none',
-                                borderRadius: '6px',
-                                padding: '6px 12px',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                              }}
-                            >
-                              Acompanhar
-                              <ChevronRight size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  });
-                })()
-              )}
-            </tbody>
-          </table>
+                        </div>
+                        <span
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            backgroundColor: st.bg,
+                            color: st.text,
+                            border: `1px solid ${st.border}`
+                          }}
+                        >
+                          {st.label}
+                        </span>
+                      </div>
+
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{p.fornecedorNome}</div>
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>CNPJ: {p.fornecedorCnpj}</div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '8px 10px', backgroundColor: 'var(--bg-page)', borderRadius: 'var(--radius-sm)', fontSize: '12px' }}>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)', display: 'block' }}>Condição / Prazo:</span>
+                          <strong>{p.condicaoPagamento || '—'} ({p.prazoEntregaDias}d)</strong>
+                        </div>
+                        <div>
+                          <span style={{ color: 'var(--text-muted)', display: 'block' }}>Valor Total:</span>
+                          <strong style={{ fontSize: '13.5px', color: 'var(--text-main)' }}>
+                            R$ {p.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </strong>
+                          <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', display: 'block' }}>{p.qtdItens} item(ns)</span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+                        <button
+                          onClick={() => handleCopiarLinkPedido(p.id, p.numero)}
+                          style={{
+                            background: copiadoPedidoId === p.id ? '#DCFCE7' : '#FFFFFF',
+                            border: copiadoPedidoId === p.id ? '1px solid #86EFAC' : '1px solid var(--border)',
+                            borderRadius: '6px',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            color: copiadoPedidoId === p.id ? '#166534' : 'var(--blue-primary)',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            minHeight: '42px'
+                          }}
+                        >
+                          {copiadoPedidoId === p.id ? '✓ Link Copiado' : '🔗 Link WhatsApp'}
+                        </button>
+                        <button
+                          onClick={() => abrirDetalhes(p.id)}
+                          style={{
+                            backgroundColor: 'var(--blue-primary)',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            fontSize: '12.5px',
+                            fontWeight: 700,
+                            minHeight: '42px'
+                          }}
+                        >
+                          Acompanhar →
+                        </button>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </>
         )}
 
         {/* PAGINACAO PEDIDOS */}
@@ -492,28 +595,12 @@ export const Pedidos: React.FC = () => {
 
       {/* MODAL DE DETALHES E TIMELINE */}
       {modalDetalhes && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 9999,
-            padding: '20px'
-          }}
-        >
+        <div className="modal-overlay">
           <div
+            className="modal-content-responsive modal-responsive-card"
             style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
-              width: '100%',
               maxWidth: '960px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-              padding: '24px 30px'
+              padding: '24px'
             }}
           >
             {carregandoDetalhe || !pedidoSelecionado ? (
@@ -521,7 +608,7 @@ export const Pedidos: React.FC = () => {
             ) : (
               <div>
                 {/* TOPO DO MODAL */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-light)', paddingBottom: '16px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-light)', paddingBottom: '16px', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--blue-primary)', margin: 0 }}>
@@ -544,7 +631,7 @@ export const Pedidos: React.FC = () => {
                       Fornecedor: <strong>{pedidoSelecionado.fornecedor?.razaoSocial}</strong> • CNPJ: {pedidoSelecionado.fornecedor?.cnpj}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button
                       onClick={() => handleCopiarLinkPedido(pedidoSelecionado.id, pedidoSelecionado.numero)}
                       style={{
@@ -555,13 +642,14 @@ export const Pedidos: React.FC = () => {
                         color: copiadoPedidoId === pedidoSelecionado.id ? '#166534' : 'var(--blue-primary)',
                         border: '1px solid var(--border)',
                         borderRadius: '6px',
-                        padding: '8px 14px',
+                        padding: '8px 12px',
                         fontWeight: 600,
-                        fontSize: '13px',
-                        cursor: 'pointer'
+                        fontSize: '12.5px',
+                        cursor: 'pointer',
+                        minHeight: '40px'
                       }}
                     >
-                      {copiadoPedidoId === pedidoSelecionado.id ? '✓ Link Copiado' : '🔗 Copiar Link para o Fornecedor'}
+                      {copiadoPedidoId === pedidoSelecionado.id ? '✓ Link Copiado' : '🔗 Copiar Link'}
                     </button>
                     <button
                       onClick={() => handleImprimir(pedidoSelecionado.id)}
@@ -573,14 +661,15 @@ export const Pedidos: React.FC = () => {
                         color: 'var(--blue-primary)',
                         border: '1px solid #bfdbfe',
                         borderRadius: '6px',
-                        padding: '8px 14px',
+                        padding: '8px 12px',
                         fontWeight: 600,
-                        fontSize: '13px',
-                        cursor: 'pointer'
+                        fontSize: '12.5px',
+                        cursor: 'pointer',
+                        minHeight: '40px'
                       }}
                     >
-                      <Printer size={16} />
-                      Visualizar Impressão (PDF)
+                      <Printer size={15} />
+                      PDF
                     </button>
                     <button
                       onClick={() => setModalDetalhes(false)}
@@ -590,9 +679,10 @@ export const Pedidos: React.FC = () => {
                         borderRadius: '6px',
                         padding: '8px 14px',
                         fontWeight: 600,
-                        fontSize: '13px',
+                        fontSize: '12.5px',
                         cursor: 'pointer',
-                        color: '#64748b'
+                        color: '#64748b',
+                        minHeight: '40px'
                       }}
                     >
                       Fechar
@@ -601,11 +691,11 @@ export const Pedidos: React.FC = () => {
                 </div>
 
                 {/* PIPELINE DE STATUS (TIMELINE HORIZONTAL) */}
-                <div style={{ marginBottom: '24px', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px 20px' }}>
+                <div style={{ marginBottom: '24px', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px 20px', overflowX: 'auto' }}>
                   <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '14px' }}>
                     Esteira de Atendimento e Entrega
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', minWidth: '560px' }}>
                     {STATUS_STEPS.map((step, idx) => {
                       const stepIndexAtual = STATUS_STEPS.indexOf(pedidoSelecionado.status);
                       const isCompleted = idx <= stepIndexAtual;
@@ -647,12 +737,12 @@ export const Pedidos: React.FC = () => {
                 </div>
 
                 {/* PAINEL DE ATUALIZAÇÃO DE STATUS */}
-                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px', display: 'flex', gap: '14px', alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '240px' }}>
                     <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e40af', marginBottom: '4px' }}>
                       Atualizar Status do Pedido
                     </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       <select
                         value={novoStatusEscolhido}
                         onChange={(e) => setNovoStatusEscolhido(e.target.value)}
@@ -662,7 +752,8 @@ export const Pedidos: React.FC = () => {
                           border: '1px solid #93c5fd',
                           fontSize: '13px',
                           backgroundColor: '#FFFFFF',
-                          outline: 'none'
+                          outline: 'none',
+                          minHeight: '40px'
                         }}
                       >
                         {STATUS_STEPS.map((s) => (
@@ -677,11 +768,13 @@ export const Pedidos: React.FC = () => {
                         onChange={(e) => setObservacaoStatus(e.target.value)}
                         style={{
                           flex: 1,
+                          minWidth: '180px',
                           padding: '7px 12px',
                           borderRadius: '6px',
                           border: '1px solid #93c5fd',
                           fontSize: '13px',
-                          outline: 'none'
+                          outline: 'none',
+                          minHeight: '40px'
                         }}
                       />
                     </div>
@@ -690,15 +783,15 @@ export const Pedidos: React.FC = () => {
                     onClick={handleAtualizarStatus}
                     disabled={avancandoStatus || novoStatusEscolhido === pedidoSelecionado.status}
                     style={{
-                      marginTop: '18px',
                       backgroundColor: '#2563eb',
                       color: '#ffffff',
                       border: 'none',
                       borderRadius: '6px',
-                      padding: '8px 16px',
+                      padding: '9px 18px',
                       fontSize: '13px',
                       fontWeight: 600,
                       cursor: 'pointer',
+                      minHeight: '40px',
                       opacity: novoStatusEscolhido === pedidoSelecionado.status ? 0.5 : 1
                     }}
                   >
@@ -711,40 +804,42 @@ export const Pedidos: React.FC = () => {
                   <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
                     Itens do Pedido ({pedidoSelecionado.itens?.length || 0})
                   </h4>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
-                        <th style={{ padding: '8px 12px', textAlign: 'left' }}>Item</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'center' }}>UN</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Qtd</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Preço Unit</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Desc %</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Preço Líq</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>ST</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pedidoSelecionado.itens?.map((i) => (
-                        <tr key={i.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                          <td style={{ padding: '8px 12px' }}>
-                            <strong>{i.codigoProduto}</strong> - {i.descricaoProduto}
-                          </td>
-                          <td style={{ padding: '8px 12px', textAlign: 'center' }}>{i.unidade}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>{i.quantidade}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>R$ {i.precoUnitario.toFixed(2)}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>{i.descontoPerc.toFixed(1)}%</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>R$ {i.precoLiquidoUnit.toFixed(2)}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right' }}>R$ {i.icmsStValor.toFixed(2)}</td>
-                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700 }}>R$ {i.subtotal.toFixed(2)}</td>
+                  <div className="table-container">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border)' }}>
+                          <th style={{ padding: '8px 12px', textAlign: 'left' }}>Item</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'center' }}>UN</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right' }}>Qtd</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right' }}>Preço Unit</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right' }}>Desc %</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right' }}>Preço Líq</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right' }}>ST</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right' }}>Subtotal</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {pedidoSelecionado.itens?.map((i) => (
+                          <tr key={i.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                            <td style={{ padding: '8px 12px' }}>
+                              <strong>{i.codigoProduto}</strong> - {i.descricaoProduto}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>{i.unidade}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>{i.quantidade}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>R$ {i.precoUnitario.toFixed(2)}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>{i.descontoPerc.toFixed(1)}%</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>R$ {i.precoLiquidoUnit.toFixed(2)}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>R$ {i.icmsStValor.toFixed(2)}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700 }}>R$ {i.subtotal.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
 
                 {/* RESUMO DE VALORES E HISTÓRICO DE LOGS */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div className="two-col-responsive" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
                   {/* HISTÓRICO DE EVENTOS */}
                   <div style={{ border: '1px solid var(--border)', borderRadius: '8px', padding: '14px' }}>
                     <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>

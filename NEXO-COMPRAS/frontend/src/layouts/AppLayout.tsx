@@ -310,14 +310,14 @@ export const AppLayout: React.FC = () => {
             )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div className="hide-on-mobile" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', lineHeight: 1.25 }}>
-              <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>
-                {user?.nome}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                {user?.email} • <span style={{ fontWeight: 600, color: 'var(--blue-primary)' }}>{user?.perfil}</span>
-              </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+            <div className="hide-on-mobile" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', textAlign: 'right' }}>
+              <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                {user?.nome || 'Usuário'}
+              </span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                {user?.email} • <strong style={{ fontWeight: 600, color: 'var(--blue-primary)' }}>{user?.perfil}</strong>
+              </span>
             </div>
             <div style={{
               width: '36px',
@@ -330,7 +330,8 @@ export const AppLayout: React.FC = () => {
               justifyContent: 'center',
               fontWeight: 800,
               fontSize: '14px',
-              border: '1px solid var(--border)'
+              border: '1px solid var(--border)',
+              flexShrink: 0
             }}>
               {user?.nome ? user.nome.charAt(0).toUpperCase() : 'U'}
             </div>

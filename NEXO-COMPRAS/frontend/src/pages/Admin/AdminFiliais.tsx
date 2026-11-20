@@ -56,18 +56,19 @@ export const AdminFiliais: React.FC = () => {
             <span style={{ fontWeight: 700, fontSize: '15px' }}>Total: {filiais.length} filiais registradas</span>
           </div>
 
-          <div style={{ width: '300px', position: 'relative' }}>
+          <div style={{ width: '100%', maxWidth: '300px', position: 'relative' }}>
             <Search size={16} style={{ position: 'absolute', left: '10px', top: '11px', color: 'var(--text-muted)' }} />
             <input
               placeholder="Buscar por filial, empresa ou CNPJ..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              style={{ paddingLeft: '34px' }}
+              style={{ paddingLeft: '34px', width: '100%', minHeight: '40px' }}
             />
           </div>
         </div>
 
-        <div className="table-container">
+        {/* TABELA DESKTOP */}
+        <div className="table-container desktop-table-view">
           <table>
             <thead>
               <tr>
@@ -141,6 +142,65 @@ export const AdminFiliais: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* CARDS MOBILE */}
+        <div className="mobile-card-view" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+              Carregando filiais...
+            </div>
+          ) : filiaisFiltradas.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+              Nenhuma filial encontrada.
+            </div>
+          ) : (
+            filiaisFiltradas.map((f) => (
+              <div
+                key={f.id}
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-main)' }}>{f.nome}</span>
+                  <span className={`badge ${f.ativa ? 'badge-green' : 'badge-red'}`} style={{ fontSize: '11px' }}>
+                    {f.ativa ? 'Ativa' : 'Inativa'}
+                  </span>
+                </div>
+
+                <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Building2 size={14} color="var(--blue-primary)" />
+                  <strong>{f.empresaNome || 'Empresa'}</strong> • Cód: <code style={{ fontFamily: 'monospace' }}>{f.codigo}</code>
+                </div>
+
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  CNPJ: {f.cnpj || '—'} {f.cidade ? `• ${f.cidade}/${f.uf}` : ''}
+                </div>
+
+                {f.token && (
+                  <div style={{ padding: '8px 10px', backgroundColor: 'var(--bg-page)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                    <code style={{ fontSize: '11.5px', fontFamily: 'monospace' }}>{f.token}</code>
+                    <button
+                      type="button"
+                      onClick={() => copiarToken(f.token)}
+                      className="btn btn-secondary"
+                      style={{ minHeight: '34px', padding: '4px 10px', fontSize: '11.5px' }}
+                    >
+                      {copiadoToken === f.token ? <Check size={14} color="var(--green)" /> : <Copy size={14} />} Copiar
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

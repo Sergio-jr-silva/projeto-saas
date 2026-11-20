@@ -146,7 +146,8 @@ export const ComparacaoLista: React.FC = () => {
 
       {/* TABELA DE COTAÇÕES PARA COMPARAÇÃO */}
       <div className="card">
-        <div className="table-container">
+        {/* DESKTOP TABLE */}
+        <div className="table-container desktop-table-view">
           <table>
             <thead>
               <tr>
@@ -257,6 +258,91 @@ export const ComparacaoLista: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* MOBILE CARDS VIEW */}
+        <div className="mobile-card-view" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+              Carregando cotações...
+            </div>
+          ) : cotacoesFiltradas.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+              Nenhuma cotação encontrada.
+            </div>
+          ) : (
+            cotacoesFiltradas.map((c) => {
+              const temRespostas = c.respondidas > 0;
+              const isSelected = selecionadas.includes(c.id);
+
+              return (
+                <div
+                  key={c.id}
+                  style={{
+                    backgroundColor: isSelected ? '#EFF6FF' : '#FFFFFF',
+                    border: isSelected ? '2px solid var(--blue-primary)' : '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(c.id)}
+                        style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                      />
+                      <span style={{ fontFamily: 'monospace', fontWeight: 800, color: 'var(--blue-primary)', fontSize: '15px' }}>
+                        {c.numero}
+                      </span>
+                    </div>
+                    <span className={`badge ${c.status === 'Aprovada' ? 'badge-green' : c.status === 'Cancelada' ? 'badge-red' : 'badge-blue'}`}>
+                      {c.status}
+                    </span>
+                  </div>
+
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', marginBottom: '2px' }}>
+                      {c.titulo}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      {c.itens} item(ns) cotado(s) • Limite: {new Date(c.dataLimiteResposta).toLocaleDateString('pt-BR')}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'var(--bg-page)', borderRadius: 'var(--radius-sm)', fontSize: '12px' }}>
+                    <span>Fornecedores: <strong>{c.fornecedores}</strong></span>
+                    <span className={`badge ${temRespostas ? 'badge-green' : 'badge-yellow'}`} style={{ fontSize: '11px', fontWeight: 700 }}>
+                      {c.respondidas} de {c.fornecedores} respondida(s)
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '8px', marginTop: '4px' }}>
+                    <button
+                      onClick={() => navigate(`/cotacoes/${c.id}`)}
+                      className="btn btn-secondary"
+                      style={{ minHeight: '42px', fontSize: '13px' }}
+                    >
+                      <Eye size={15} /> Detalhes
+                    </button>
+                    <button
+                      onClick={() => navigate(`/cotacoes/${c.id}/comparacao`)}
+                      disabled={!temRespostas}
+                      className={`btn ${temRespostas ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ minHeight: '42px', fontSize: '13px', fontWeight: 700 }}
+                    >
+                      <Award size={15} /> Comparar & Campeã
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

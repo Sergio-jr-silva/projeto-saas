@@ -337,7 +337,7 @@ export const ComparacaoCotacaoPage: React.FC = () => {
           O Custo Efetivo considera: Preço - Desconto + IPI + ICMS ST + Rateio de Frete - Créditos de ICMS/PIS/COFINS (conforme regime).
         </p>
 
-        <div className="table-container">
+        <div className="table-container desktop-table-view">
           <table>
             <thead>
               <tr>
@@ -429,23 +429,114 @@ export const ComparacaoCotacaoPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* MOBILE CARD VIEW: SELEÇÃO ITEM A ITEM */}
+        <div className="mobile-card-view" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {comparativo.itens.map((it) => (
+            <div
+              key={it.cotacaoItemId}
+              style={{
+                backgroundColor: '#FFFFFF',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '14px',
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            >
+              <div style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '8px', marginBottom: '10px' }}>
+                <div style={{ fontWeight: 700, fontSize: '14.5px', color: 'var(--text-main)' }}>
+                  {it.descricao}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  <span>{it.codigo} • Qtd: <strong>{it.quantidade} {it.unidade}</strong></span>
+                  <span>Último custo ref: <strong>R$ {it.referenciaCustoUnit.toFixed(2).replace('.', ',')}</strong></span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {comparativo.fornecedores.map((f) => {
+                  const oferta = it.ofertas.find((o) => o.cotacaoFornecedorId === f.cotacaoFornecedorId);
+                  const selecionado = escolhas[it.cotacaoItemId] === f.cotacaoFornecedorId;
+
+                  if (!oferta || !oferta.disponivel) {
+                    return (
+                      <div
+                        key={f.cotacaoFornecedorId}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          opacity: 0.6,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: '12px'
+                        }}
+                      >
+                        <span style={{ fontWeight: 600 }}>{f.nome}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>Indisponível</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={f.cotacaoFornecedorId}
+                      onClick={() => alterarEscolhaItem(it.cotacaoItemId, f.cotacaoFornecedorId)}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        backgroundColor: selecionado ? '#eff6ff' : '#ffffff',
+                        border: selecionado ? '2px solid var(--blue-primary)' : '1px solid var(--border)',
+                        boxShadow: selecionado ? '0 2px 8px rgba(37,99,235,0.15)' : 'none',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <input
+                            type="radio"
+                            name={`mobile_item_${it.cotacaoItemId}`}
+                            checked={selecionado}
+                            onChange={() => alterarEscolhaItem(it.cotacaoItemId, f.cotacaoFornecedorId)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                          />
+                          <span style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)' }}>
+                            {f.nome}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: '15px', fontWeight: 800, color: oferta.melhorCusto ? 'var(--green)' : 'var(--text-main)' }}>
+                          R$ {oferta.custoEfetivoUnit.toFixed(2).replace('.', ',')}
+                          <span style={{ fontSize: '10.5px', fontWeight: 500, color: 'var(--text-muted)', display: 'block', textAlign: 'right' }}>por un.</span>
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                        <span>Bruto: R$ {oferta.precoUnitario.toFixed(2).replace('.', ',')} {oferta.ipi > 0 ? `+ IPI ${oferta.ipi}%` : ''}</span>
+                        <span>Total: <strong>R$ {(oferta.custoEfetivoUnit * it.quantidade).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                      </div>
+
+                      {oferta.melhorCusto && (
+                        <div style={{ marginTop: '6px' }}>
+                          <span className="badge badge-green" style={{ fontSize: '10.5px', padding: '2px 8px' }}>
+                            🏆 Menor Custo Efetivo
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* MODAL DE CONFIRMAÇÃO DA APROVAÇÃO */}
       {showModalAprovar && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(30, 41, 59, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 60,
-            padding: '20px',
-          }}
-        >
-          <div className="card" style={{ maxWidth: '540px', width: '100%', padding: '24px' }}>
+        <div className="modal-overlay">
+          <div className="modal-content-responsive" style={{ maxWidth: '540px' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px' }}>
               Confirmar Aprovação da Cotação
             </h3>
@@ -489,12 +580,13 @@ export const ComparacaoCotacaoPage: React.FC = () => {
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={() => setShowModalAprovar(false)}
                 className="btn btn-secondary"
                 disabled={aprovando}
+                style={{ minHeight: '42px', flex: '1 1 120px' }}
               >
                 Cancelar
               </button>
@@ -503,6 +595,7 @@ export const ComparacaoCotacaoPage: React.FC = () => {
                 onClick={handleAprovar}
                 className="btn btn-primary"
                 disabled={aprovando}
+                style={{ minHeight: '42px', flex: '2 1 180px', fontWeight: 700 }}
               >
                 {aprovando ? 'Aprovando...' : 'Confirmar e Aprovar Compra'}
               </button>

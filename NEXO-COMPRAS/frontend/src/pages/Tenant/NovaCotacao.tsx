@@ -243,19 +243,19 @@ export const NovaCotacao: React.FC = () => {
                   <span className="badge badge-blue">Válido até {new Date(a.expiraEm).toLocaleDateString('pt-BR')}</span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '12px', alignItems: 'center', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
                   <div>
                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block' }}>Link do Portal:</span>
                     <input
                       readOnly
                       value={a.link}
-                      style={{ fontSize: '12.5px', fontFamily: 'monospace', backgroundColor: '#fff' }}
+                      style={{ fontSize: '12px', fontFamily: 'monospace', backgroundColor: '#fff' }}
                     />
                   </div>
                   <button
                     onClick={() => copiarTexto(a.link, a.link)}
                     className="btn btn-secondary"
-                    style={{ alignSelf: 'flex-end', height: '38px' }}
+                    style={{ alignSelf: 'flex-start', minHeight: '38px' }}
                     title="Copiar Link"
                   >
                     {copiadoId === a.link ? <Check size={16} color="var(--green)" /> : <Copy size={16} />}
@@ -263,7 +263,7 @@ export const NovaCotacao: React.FC = () => {
                   </button>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '240px auto 1fr', gap: '12px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div>
                     <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block' }}>Código de Acesso:</span>
                     <input
@@ -276,20 +276,23 @@ export const NovaCotacao: React.FC = () => {
                         letterSpacing: '2px',
                         color: 'var(--primary)',
                         backgroundColor: '#fff',
+                        maxWidth: '260px'
                       }}
                     />
                   </div>
-                  <button
-                    onClick={() => copiarTexto(a.codigo, a.codigo)}
-                    className="btn btn-secondary"
-                    style={{ alignSelf: 'flex-end', height: '38px' }}
-                    title="Copiar Código"
-                  >
-                    {copiadoId === a.codigo ? <Check size={16} color="var(--green)" /> : <Copy size={16} />}
-                    {copiadoId === a.codigo ? 'Copiado!' : 'Copiar Código'}
-                  </button>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', paddingLeft: '8px' }}>
-                    O fornecedor precisará deste código para autenticar e preencher os preços.
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => copiarTexto(a.codigo, a.codigo)}
+                      className="btn btn-secondary"
+                      style={{ minHeight: '38px' }}
+                      title="Copiar Código"
+                    >
+                      {copiadoId === a.codigo ? <Check size={16} color="var(--green)" /> : <Copy size={16} />}
+                      {copiadoId === a.codigo ? 'Copiado!' : 'Copiar Código'}
+                    </button>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      O fornecedor precisará deste código para autenticar e preencher os preços.
+                    </div>
                   </div>
                 </div>
               </div>
@@ -314,7 +317,7 @@ export const NovaCotacao: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', alignItems: 'start' }}>
+      <div className="two-col-responsive">
         {/* COLUNA ESQUERDA: PRODUTOS DA COTAÇÃO */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {/* CABEÇALHO DA COTAÇÃO */}
@@ -322,7 +325,7 @@ export const NovaCotacao: React.FC = () => {
             <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px', color: 'var(--text-main)' }}>
               Identificação da Cotação
             </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '14px' }}>
+            <div className="form-grid-responsive-2" style={{ gap: '14px' }}>
               <div>
                 <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
                   Título / Referência
@@ -396,69 +399,157 @@ export const NovaCotacao: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Código</th>
-                      <th>Descrição</th>
-                      <th>Unidade</th>
-                      <th style={{ textAlign: 'right' }}>Estoque Atual</th>
-                      <th style={{ textAlign: 'right', width: '150px' }}>Quantidade a Cotar</th>
-                      <th style={{ width: '60px' }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {itens.map((it) => (
-                      <tr key={it.produtoId}>
-                        <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{it.codigoErp || '—'}</td>
-                        <td>
-                          <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{it.descricao}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            Último Custo Ref: R$ {it.custoAtual.toFixed(2).replace('.', ',')}
+              <>
+                {/* DESKTOP TABLE VIEW */}
+                <div className="desktop-table-view">
+                  <div className="table-container">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Código</th>
+                          <th>Descrição</th>
+                          <th>Unidade</th>
+                          <th style={{ textAlign: 'right' }}>Estoque Atual</th>
+                          <th style={{ textAlign: 'right', width: '150px' }}>Quantidade a Cotar</th>
+                          <th style={{ width: '60px' }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {itens.map((it) => (
+                          <tr key={it.produtoId}>
+                            <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{it.codigoErp || '—'}</td>
+                            <td>
+                              <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{it.descricao}</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                Último Custo Ref: R$ {it.custoAtual.toFixed(2).replace('.', ',')}
+                              </div>
+                            </td>
+                            <td>{it.unidade}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <span
+                                style={{
+                                  fontWeight: 600,
+                                  color: it.estoqueAtual <= it.estoqueMinimo ? 'var(--red)' : 'var(--text-main)',
+                                }}
+                              >
+                                {it.estoqueAtual.toLocaleString('pt-BR')}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <input
+                                type="number"
+                                step="any"
+                                min="0.1"
+                                value={it.quantidade}
+                                onChange={(e) => alterarQuantidade(it.produtoId, parseFloat(e.target.value) || 0)}
+                                style={{ width: '120px', textAlign: 'right', fontWeight: 700 }}
+                              />
+                            </td>
+                            <td>
+                              <button
+                                onClick={() => removerItem(it.produtoId)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: 'var(--red)',
+                                  cursor: 'pointer',
+                                  padding: '6px',
+                                }}
+                                title="Remover produto"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* MOBILE CARDS VIEW */}
+                <div className="mobile-card-view">
+                  {itens.map((it) => (
+                    <div
+                      key={it.produtoId}
+                      style={{
+                        border: '1px solid var(--border)',
+                        borderRadius: '10px',
+                        padding: '14px',
+                        backgroundColor: '#FFFFFF',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>
+                            {it.descricao}
                           </div>
-                        </td>
-                        <td>{it.unidade}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          <span
-                            style={{
-                              fontWeight: 600,
-                              color: it.estoqueAtual <= it.estoqueMinimo ? 'var(--red)' : 'var(--text-main)',
-                            }}
-                          >
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            Código: <span style={{ fontFamily: 'monospace' }}>{it.codigoErp || '—'}</span> • Unidade: <strong>{it.unidade}</strong>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removerItem(it.produtoId)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--red)',
+                            cursor: 'pointer',
+                            padding: '6px',
+                          }}
+                          title="Remover produto"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          backgroundColor: '#F8FAFC',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          marginBottom: '10px'
+                        }}
+                      >
+                        <span>
+                          Estoque Atual:{' '}
+                          <strong style={{ color: it.estoqueAtual <= it.estoqueMinimo ? 'var(--red)' : 'var(--text-main)' }}>
                             {it.estoqueAtual.toLocaleString('pt-BR')}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <input
-                            type="number"
-                            step="any"
-                            min="0.1"
-                            value={it.quantidade}
-                            onChange={(e) => alterarQuantidade(it.produtoId, parseFloat(e.target.value) || 0)}
-                            style={{ width: '120px', textAlign: 'right', fontWeight: 700 }}
-                          />
-                        </td>
-                        <td>
-                          <button
-                            onClick={() => removerItem(it.produtoId)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: 'var(--red)',
-                              cursor: 'pointer',
-                              padding: '6px',
-                            }}
-                            title="Remover produto"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                          </strong>
+                        </span>
+                        <span>
+                          Ref: <strong>R$ {it.custoAtual.toFixed(2).replace('.', ',')}</strong>
+                        </span>
+                      </div>
+
+                      <div>
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px', display: 'block' }}>
+                          Quantidade a Cotar
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0.1"
+                          value={it.quantidade}
+                          onChange={(e) => alterarQuantidade(it.produtoId, parseFloat(e.target.value) || 0)}
+                          style={{
+                            fontWeight: 800,
+                            fontSize: '16px',
+                            color: 'var(--blue-primary)',
+                            minHeight: '44px',
+                            width: '100%'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -559,88 +650,135 @@ export const NovaCotacao: React.FC = () => {
 
       {/* MODAL PARA SELEÇÃO DE PRODUTOS */}
       {showAddProduto && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(30, 41, 59, 0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 50,
-            padding: '20px',
-          }}
-        >
-          <div className="card" style={{ width: '100%', maxWidth: '750px', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-main)' }}>
+        <div className="modal-overlay">
+          <div className="modal-responsive-card" style={{ display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border-light)', paddingBottom: '12px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', margin: 0 }}>
                 Adicionar Produtos à Cotação
               </h2>
-              <button onClick={() => setShowAddProduto(false)} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>
+              <button
+                onClick={() => setShowAddProduto(false)}
+                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-muted)', lineHeight: 1 }}
+              >
                 ×
               </button>
             </div>
 
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ marginBottom: '14px' }}>
               <input
                 placeholder="Buscar por descrição, código ou grupo..."
                 value={buscaProduto}
                 onChange={(e) => setBuscaProduto(e.target.value)}
                 autoFocus
+                style={{ minHeight: '44px', fontSize: '15px' }}
               />
             </div>
 
-            <div style={{ padding: '0 24px', flex: 1, overflowY: 'auto' }}>
-              <table style={{ width: '100%' }}>
-                <thead>
-                  <tr>
-                    <th>Código</th>
-                    <th>Descrição</th>
-                    <th>Grupo</th>
-                    <th style={{ textAlign: 'right' }}>Estoque</th>
-                    <th style={{ textAlign: 'right' }}>Sugestão</th>
-                    <th style={{ width: '80px' }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {todosProdutos
-                    .filter(
-                      (p) =>
-                        !buscaProduto ||
-                        p.descricao.toLowerCase().includes(buscaProduto.toLowerCase()) ||
-                        p.codigoErp.toLowerCase().includes(buscaProduto.toLowerCase()) ||
-                        p.grupo.toLowerCase().includes(buscaProduto.toLowerCase())
-                    )
-                    .map((p) => {
-                      const jaAdicionado = itens.some((i) => i.produtoId === p.id);
-                      return (
-                        <tr key={p.id}>
-                          <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{p.codigoErp}</td>
-                          <td style={{ fontWeight: 600 }}>{p.descricao}</td>
-                          <td style={{ fontSize: '12px' }}>{p.grupo}</td>
-                          <td style={{ textAlign: 'right' }}>{p.estoqueAtual ?? '—'}</td>
-                          <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>
-                            {p.sugestaoCompra > 0 ? p.sugestaoCompra : '—'}
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button
-                              onClick={() => adicionarProduto(p)}
-                              disabled={jaAdicionado}
-                              className={`btn ${jaAdicionado ? 'btn-secondary' : 'btn-primary'}`}
-                              style={{ padding: '5px 10px', fontSize: '12px' }}
-                            >
-                              {jaAdicionado ? 'Adicionado' : 'Adicionar'}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
+              {/* DESKTOP TABLE VIEW */}
+              <div className="desktop-table-view">
+                <div className="table-container">
+                  <table style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Descrição</th>
+                        <th>Grupo</th>
+                        <th style={{ textAlign: 'right' }}>Estoque</th>
+                        <th style={{ textAlign: 'right' }}>Sugestão</th>
+                        <th style={{ width: '80px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {todosProdutos
+                        .filter(
+                          (p) =>
+                            !buscaProduto ||
+                            p.descricao.toLowerCase().includes(buscaProduto.toLowerCase()) ||
+                            p.codigoErp.toLowerCase().includes(buscaProduto.toLowerCase()) ||
+                            p.grupo.toLowerCase().includes(buscaProduto.toLowerCase())
+                        )
+                        .map((p) => {
+                          const jaAdicionado = itens.some((i) => i.produtoId === p.id);
+                          return (
+                            <tr key={p.id}>
+                              <td style={{ fontFamily: 'monospace', fontSize: '12px' }}>{p.codigoErp}</td>
+                              <td style={{ fontWeight: 600 }}>{p.descricao}</td>
+                              <td style={{ fontSize: '12px' }}>{p.grupo}</td>
+                              <td style={{ textAlign: 'right' }}>{p.estoqueAtual ?? '—'}</td>
+                              <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>
+                                {p.sugestaoCompra > 0 ? p.sugestaoCompra : '—'}
+                              </td>
+                              <td style={{ textAlign: 'right' }}>
+                                <button
+                                  onClick={() => adicionarProduto(p)}
+                                  disabled={jaAdicionado}
+                                  className={`btn ${jaAdicionado ? 'btn-secondary' : 'btn-primary'}`}
+                                  style={{ padding: '5px 10px', fontSize: '12px' }}
+                                >
+                                  {jaAdicionado ? 'Adicionado' : 'Adicionar'}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* MOBILE CARDS VIEW */}
+              <div className="mobile-card-view">
+                {todosProdutos
+                  .filter(
+                    (p) =>
+                      !buscaProduto ||
+                      p.descricao.toLowerCase().includes(buscaProduto.toLowerCase()) ||
+                      p.codigoErp.toLowerCase().includes(buscaProduto.toLowerCase()) ||
+                      p.grupo.toLowerCase().includes(buscaProduto.toLowerCase())
+                  )
+                  .map((p) => {
+                    const jaAdicionado = itens.some((i) => i.produtoId === p.id);
+                    return (
+                      <div
+                        key={p.id}
+                        style={{
+                          border: '1px solid var(--border)',
+                          borderRadius: '8px',
+                          padding: '12px',
+                          backgroundColor: jaAdicionado ? '#F8FAFC' : '#FFFFFF'
+                        }}
+                      >
+                        <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>
+                          {p.descricao}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0' }}>
+                          Código: <span style={{ fontFamily: 'monospace' }}>{p.codigoErp || '—'}</span> • Grupo: {p.grupo || 'Geral'}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '8px' }}>
+                          <span>Estoque: <strong>{p.estoqueAtual ?? 0} {p.unidade}</strong></span>
+                          {p.sugestaoCompra > 0 && (
+                            <span style={{ color: 'var(--blue-primary)', fontWeight: 600 }}>
+                              Sugestão: {p.sugestaoCompra}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => adicionarProduto(p)}
+                          disabled={jaAdicionado}
+                          className={`btn ${jaAdicionado ? 'btn-secondary' : 'btn-primary'}`}
+                          style={{ width: '100%', minHeight: '42px', fontSize: '13px' }}
+                        >
+                          {jaAdicionado ? '✓ Já Adicionado' : '+ Adicionar'}
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
 
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', textAlign: 'right' }}>
-              <button onClick={() => setShowAddProduto(false)} className="btn btn-primary">
+            <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '12px', marginTop: '12px', textAlign: 'right' }}>
+              <button onClick={() => setShowAddProduto(false)} className="btn btn-primary" style={{ width: '100%', minHeight: '42px' }}>
                 Concluir Seleção ({itens.length} adicionados)
               </button>
             </div>

@@ -112,7 +112,7 @@ export const CotacoesEmAndamento: React.FC = () => {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <div className="horizontal-tabs-scroll" style={{ display: 'flex', gap: '6px' }}>
             {[
               { id: 'Todas', label: 'Todas' },
               { id: 'Rascunhos', label: 'Rascunhos' },
@@ -125,7 +125,7 @@ export const CotacoesEmAndamento: React.FC = () => {
                 key={f.id}
                 onClick={() => setStatusFiltro(f.id)}
                 className={`btn ${statusFiltro === f.id ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '12.5px', padding: '6px 12px' }}
+                style={{ fontSize: '12.5px', padding: '6px 12px', whiteSpace: 'nowrap' }}
               >
                 {f.label}
               </button>
@@ -136,7 +136,8 @@ export const CotacoesEmAndamento: React.FC = () => {
 
       {/* TABELA DE COTAÇÕES */}
       <div className="card">
-        <div className="table-container">
+        {/* DESKTOP TABLE */}
+        <div className="table-container desktop-table-view">
           <table>
             <thead>
               <tr>
@@ -227,6 +228,94 @@ export const CotacoesEmAndamento: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* MOBILE CARDS VIEW */}
+        <div className="mobile-card-view" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+              Carregando cotações...
+            </div>
+          ) : cotacoesFiltradas.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+              Nenhuma cotação encontrada.
+            </div>
+          ) : (
+            cotacoesPaginadas.map((c) => {
+              const temRespostas = c.respondidas > 0;
+              return (
+                <div
+                  key={c.id}
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 800, color: 'var(--blue-primary)', fontSize: '15px' }}>
+                      {c.numero}
+                    </span>
+                    {badgeStatus(c)}
+                  </div>
+
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)', marginBottom: '2px' }}>
+                      {c.titulo}
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                      Criada em: {new Date(c.dataCriacao).toLocaleDateString('pt-BR')} • Limite: {new Date(c.dataLimiteResposta).toLocaleDateString('pt-BR')}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '8px', backgroundColor: 'var(--bg-page)', borderRadius: 'var(--radius-sm)', fontSize: '12px' }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Itens:</span>
+                      <strong>{c.itens} produto(s)</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Fornecedores:</span>
+                      <strong>{c.fornecedores} ({c.visualizadas} vistos)</strong>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Respostas:</span>
+                      <span className={`badge ${c.respondidas > 0 ? 'badge-green' : 'badge-yellow'}`} style={{ fontSize: '11px', padding: '2px 6px' }}>
+                        {c.respondidas} de {c.fornecedores}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)', display: 'block' }}>Total Aprovado:</span>
+                      <strong style={{ color: c.totalAprovado > 0 ? 'var(--green)' : 'var(--text-muted)' }}>
+                        {c.totalAprovado > 0 ? `R$ ${c.totalAprovado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+                    <button
+                      onClick={() => navigate(`/cotacoes/${c.id}`)}
+                      className="btn btn-secondary"
+                      style={{ minHeight: '42px', fontSize: '13px', fontWeight: 600, width: '100%' }}
+                    >
+                      <Eye size={15} /> Detalhes
+                    </button>
+                    <button
+                      onClick={() => navigate(`/cotacoes/${c.id}/comparacao`)}
+                      className={`btn ${temRespostas ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ minHeight: '42px', fontSize: '13px', fontWeight: 700, width: '100%' }}
+                    >
+                      <BarChart2 size={15} /> Comparar
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* PAGINAÇÃO */}
